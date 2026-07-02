@@ -1,0 +1,39 @@
+resources:
+  jobs:
+    stewardship_job:
+      name: "dataguardian-stewardship-monitor-${bundle.target}"
+      description: "SLA monitor for stewardship records and Gold promotion trigger"
+
+      schedule:
+        quartz_cron_expression: "0 0 * * * ?"   # hourly
+        timezone_id: UTC
+        pause_status: UNPAUSED
+
+      email_notifications:
+        on_failure:
+          - ${var.notification_email}
+
+      tasks:
+        - task_key: sla_monitor
+          description: "Check for SLA breaches in stewardship layer and send alerts"
+          notebook_task:
+            notebook_path: "databricks/notebooks/stewardship/sla_monitor"
+            base_parameters:
+              env: "${bundle.target}"
+              catalog: "${var.catalog}"
+          existing_cluster_id: "${resources.clusters.dataguardian_shared.id}"
+          timeout_seconds: 600
+          max_retries: 1
+
+        - task_key: gold_publish
+          description: "Promote APPROVED stewardship records to Gold layer"
+          depends_on:
+            - task_key: sla_monitor
+          notebook_task:
+            notebook_path: "databricks/notebooks/publishing/gold_publish"
+            base_parameters:
+              env: "${bundle.target}"
+              catalog: "${var.catalog}"
+          existing_cluster_id: "${resources.clusters.dataguardian_shared.id}"
+          timeout_seconds: 3600
+          max_retries: 1

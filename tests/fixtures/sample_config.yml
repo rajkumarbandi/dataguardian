@@ -1,0 +1,46 @@
+# Test fixture — minimal environment config for unit tests
+# Used by conftest.py to create a ConfigLoader in test context
+
+environment: test
+
+unity_catalog:
+  catalog: dg_test
+  schemas:
+    bronze: bronze
+    silver: silver
+    stewardship: stewardship
+    gold: gold
+    audit: audit
+
+storage:
+  adls_account: "test-account"
+  adls_container: dataguardian-test
+  adls_root: "abfss://dataguardian-test@test-account.dfs.core.windows.net"
+
+databricks:
+  secret_scope: dataguardian-test-scope
+
+ingestion:
+  default_partition_column: ingestion_date
+  batch_size_rows: 1000
+  retry_attempts: 1
+  retry_delay_seconds: 0
+
+quality:
+  default_dq_threshold: 0.75
+
+stewardship:
+  sla_hours: 1
+  notifications_enabled: false
+  default_approvers: []
+
+ai:
+  enabled: false
+
+logging:
+  level: DEBUG
+  format: json
+
+spark:
+  shuffle_partitions: 2
+  adaptive_query_execution: false

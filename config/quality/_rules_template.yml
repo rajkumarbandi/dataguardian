@@ -1,0 +1,50 @@
+# DataGuardian Quality Rule Suite Template
+# Copy to config/quality/{entity_name}_rules.yml
+# All rule weights must sum to 1.0
+
+entity: <entity_name>
+version: "1.0"
+
+# Records with dq_score below this threshold are routed to the stewardship layer.
+# Typical values: 0.70 (lenient) / 0.75 (standard) / 0.85 (strict)
+dq_threshold: 0.75
+
+rules:
+  # Completeness: check that required columns are not null/empty
+  - rule: completeness
+    id: complete_required_fields
+    weight: 0.35
+    columns: []                    # list of column names to check
+    fail_on_empty_string: true
+
+  # Uniqueness: check that the business key combination is unique
+  - rule: uniqueness
+    id: unique_business_key
+    weight: 0.25
+    columns: []                    # list of key columns
+
+  # Pattern: regex validation (add one entry per column requiring pattern check)
+  # - rule: pattern
+  #   id: valid_email
+  #   weight: 0.15
+  #   column: email_address
+  #   pattern: "^[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}$"
+  #   nullable: true
+
+  # Range: value must be within bounds
+  # - rule: range
+  #   id: valid_date_range
+  #   weight: 0.15
+  #   column: date_column
+  #   min_value: "2000-01-01"
+  #   max_value: "{today}"
+
+  # Referential: value must exist in a reference table
+  # - rule: referential
+  #   id: valid_country
+  #   weight: 0.10
+  #   column: country_code
+  #   reference_table: "{catalog}.gold.ref_countries"
+  #   reference_column: country_code
+
+  # IMPORTANT: all weights above must sum to 1.0

@@ -1,0 +1,22 @@
+# DataGuardian — Stewardship Portal dependencies
+#
+# These are installed into the Databricks Apps environment.
+# Runtime is Python 3.11+ on Databricks Runtime 15.x+.
+
+# ── Core UI framework ─────────────────────────────────────────────────────────
+streamlit>=1.36.0
+
+# ── Charts ────────────────────────────────────────────────────────────────────
+plotly>=5.20.0
+
+# ── Data manipulation ─────────────────────────────────────────────────────────
+pandas>=2.1.0
+
+# ── Databricks SQL Warehouse connector (production mode) ─────────────────────
+databricks-sdk>=0.28.0
+databricks-sql-connector>=3.3.0
+
+# ── Shared DataGuardian utilities ─────────────────────────────────────────────
+pyyaml>=6.0
+pydantic>=2.5
+structlog>=24.2

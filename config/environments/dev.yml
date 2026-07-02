@@ -1,0 +1,123 @@
+# DataGuardian — DEV Environment Configuration
+#
+# Non-sensitive configuration for the development environment.
+# Secrets (storage account key, service principal) are never stored here.
+# They are stored in Azure Key Vault and referenced via the Databricks secret scope.
+#
+# ADLS account name placeholder: replace "dg-adls-dev" with your actual
+# Azure Data Lake Storage Gen2 account name before deploying.
+
+environment: dev
+
+# ---------------------------------------------------------------------------
+# Unity Catalog
+# ---------------------------------------------------------------------------
+unity_catalog:
+  catalog: dg_dev
+  schemas:
+    bronze: bronze
+    silver: silver
+    stewardship: stewardship
+    gold: gold
+    audit: audit
+
+# ---------------------------------------------------------------------------
+# Storage — Azure Data Lake Storage Gen2
+# ---------------------------------------------------------------------------
+storage:
+  adls_account: dg-adls-dev                          # replace with actual account name
+  adls_container: dataguardian-dev
+  adls_root: "abfss://dataguardian-dev@dg-adls-dev.dfs.core.windows.net"
+  checkpoint_location: "abfss://dataguardian-dev@dg-adls-dev.dfs.core.windows.net/_checkpoints"
+  raw_zone: "abfss://dataguardian-dev@dg-adls-dev.dfs.core.windows.net/raw"
+  archive_zone: "abfss://dataguardian-dev@dg-adls-dev.dfs.core.windows.net/archive"
+
+# ---------------------------------------------------------------------------
+# Databricks workspace
+# ---------------------------------------------------------------------------
+databricks:
+  secret_scope: dataguardian-dev-scope
+  cluster_policy_id: ""                              # set after workspace bootstrap
+  repo_path: /Repos/dev/dataguardian
+
+# ---------------------------------------------------------------------------
+# Ingestion pipeline
+# ---------------------------------------------------------------------------
+ingestion:
+  default_partition_column: _load_date
+  batch_size_rows: 100000
+  retry_attempts: 3
+  retry_delay_seconds: 30
+  archive_source_files: false                        # disabled in dev to preserve fixture files
+
+# ---------------------------------------------------------------------------
+# Data Quality (future — M3)
+# ---------------------------------------------------------------------------
+quality:
+  default_dq_threshold: 0.70                        # relaxed in dev for easier testing
+  fail_on_threshold_breach: false
+
+# ---------------------------------------------------------------------------
+# Stewardship (future — M4)
+# ---------------------------------------------------------------------------
+stewardship:
+  sla_hours: 1                                      # short SLA in dev for fast feedback
+  notifications_enabled: false
+  default_approvers: []
+
+# ---------------------------------------------------------------------------
+# AI enrichment (future — M5)
+# ---------------------------------------------------------------------------
+ai:
+  enabled: false                                    # never enabled in dev to avoid API costs
+  provider: azure_openai
+
+# ---------------------------------------------------------------------------
+# Logging
+# ---------------------------------------------------------------------------
+logging:
+  level: DEBUG                                      # verbose in dev
+  format: json
+
+# ---------------------------------------------------------------------------
+# Spark configuration overrides
+# ---------------------------------------------------------------------------
+spark:
+  shuffle_partitions: 8                             # small for dev DataFrames; prod uses 400
+  adaptive_query_execution: true
+  broadcast_threshold_mb: 10
+
+# ---------------------------------------------------------------------------
+# Pipeline — auditing, versioning, retry (Milestone 4)
+# ---------------------------------------------------------------------------
+pipeline:
+  pipeline_name: dataguardian-erp
+  pipeline_version: "1.0.0"
+  audit_enabled: true
+  retry_policy:
+    max_attempts: 2                                 # relaxed in dev — fail fast for faster feedback
+    initial_delay_seconds: 1.0
+    backoff_multiplier: 2.0
+    max_delay_seconds: 30.0
+
+# ---------------------------------------------------------------------------
+# Schema Registry — drift detection and version tracking (Milestone 5)
+# ---------------------------------------------------------------------------
+schema_registry:
+  schema_registry_enabled: true                  # persist schema versions to audit.schema_registry
+  schema_audit_enabled: true                     # write audit.schema_history after every validation
+  default_evolution_mode: ALLOW_NEW_COLUMNS      # relaxed in dev — new columns are common during development
+
+# ---------------------------------------------------------------------------
+# Transformation Engine (Milestone 6)
+# ---------------------------------------------------------------------------
+transformation:
+  audit_enabled: true                            # write audit.transformation_history in dev
+
+# ---------------------------------------------------------------------------
+# Contract Validation (Milestone 7)
+# ---------------------------------------------------------------------------
+contract_validation:
+  contract_validation_enabled: true
+  contract_audit_enabled: true
+  default_contract_policy: WARNING_ONLY          # relaxed in dev — contract failures are warnings

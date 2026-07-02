@@ -1,0 +1,32 @@
+# Databricks App resource — DataGuardian Stewardship Portal
+#
+# Referenced from databricks.yml resources section.
+# Deploys the Streamlit stewardship portal as a Databricks App.
+
+resources:
+  apps:
+    stewardship_portal:
+      name: "dataguardian-stewardship-${bundle.target}"
+      description: "DataGuardian Business Data Stewardship Portal — operational interface for business data stewards to validate curated data before promotion to Gold"
+
+      source_code_path: ../../src/app
+
+      config:
+        - name: catalog
+          value: "${var.catalog}"
+        - name: environment
+          value: "${var.environment}"
+        - name: sql_warehouse_http_path
+          value: "${var.sql_warehouse_http_path}"
+
+      resources:
+        - name: stewardship-sql-warehouse
+          sql_warehouse:
+            id: "${var.sql_warehouse_id}"
+            permission: CAN_USE
+
+      permissions:
+        - level: CAN_VIEW
+          group_name: "${var.data_stewards_group}"
+        - level: CAN_MANAGE
+          group_name: "${var.data_engineering_group}"

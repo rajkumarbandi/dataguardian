@@ -1,0 +1,40 @@
+# DataGuardian — Python Requirements
+#
+# This file exists for compatibility with tools and workflows that consume
+# requirements.txt directly (e.g., Docker builds, some CI environments).
+#
+# The canonical dependency specification is pyproject.toml.
+# This file is generated from that source. Do not edit it manually.
+#
+# To regenerate after updating pyproject.toml:
+#   pip install pip-tools
+#   pip-compile pyproject.toml --output-file requirements.txt
+#
+# To install all runtime + development dependencies:
+#   pip install -e ".[dev]"
+#
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Runtime dependencies
+pyyaml>=6.0
+pydantic>=2.5
+streamlit>=1.35
+openai>=1.35
+pyarrow>=15.0
+structlog>=24.2
+
+# Development toolchain
+pytest>=8.1
+pytest-cov>=5.0
+pytest-mock>=3.14
+chispa>=0.9
+ruff>=0.4
+mypy>=1.10
+types-pyyaml>=6.0
+bandit>=1.7
+pre-commit>=3.7
+
+# Spark dependencies (for local integration tests outside Databricks runtime)
+# Comment these out if running exclusively on Databricks where PySpark is provided
+pyspark>=3.5
+delta-spark>=3.1

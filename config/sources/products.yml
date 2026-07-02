@@ -1,0 +1,233 @@
+# DataGuardian — Source Configuration: ERP Products
+#
+# Product catalogue extracted from the ERP system as a daily full snapshot.
+# Contains pricing and inventory data — no PII.
+#
+# ADLS path: {adls_root}/raw/erp/products/
+# Expected file naming: products_{YYYYMMDD}.csv
+
+name: products
+system: erp
+description: >
+  Product master data extracted from the ERP system as a daily full snapshot.
+  Includes pricing (unit_price), inventory levels (stock_quantity), supplier
+  reference, and product lifecycle status. No PII present.
+
+# ---------------------------------------------------------------------------
+# Connector
+# ---------------------------------------------------------------------------
+connector:
+  type: csv
+  location: "{adls_root}/raw/erp/products"
+  options:
+    header: "true"
+    delimiter: ","
+    encoding: UTF-8
+    quote: '"'
+    multiLine: "false"
+    nullValue: ""
+    dateFormat: yyyy-MM-dd
+
+# ---------------------------------------------------------------------------
+# Schema
+# ---------------------------------------------------------------------------
+schema:
+  - name: product_id
+    type: string
+    nullable: false
+    description: Natural product key from the ERP system
+
+  - name: product_name
+    type: string
+    nullable: false
+    description: Full product name as it appears in the catalogue
+
+  - name: category
+    type: string
+    nullable: true
+    description: Top-level product category
+
+  - name: subcategory
+    type: string
+    nullable: true
+    description: Product subcategory within the category
+
+  - name: unit_price
+    type: double
+    nullable: true
+    description: List price per unit in the source currency
+
+  - name: currency
+    type: string
+    nullable: true
+    description: ISO 4217 currency code (e.g. USD, EUR, GBP)
+
+  - name: stock_quantity
+    type: integer
+    nullable: true
+    description: Current on-hand stock quantity
+
+  - name: supplier_id
+    type: string
+    nullable: true
+    description: Reference to the primary supplier
+
+  - name: is_active
+    type: boolean
+    nullable: true
+    description: Whether the product is available for order
+
+  - name: created_date
+    type: date
+    nullable: true
+    description: Date the product was added to the catalogue
+
+# ---------------------------------------------------------------------------
+# Target
+# ---------------------------------------------------------------------------
+target:
+  catalog: "{catalog}"
+  schema: bronze
+  table: erp_products
+  load_type: append
+  partition_by: _load_date
+
+# ---------------------------------------------------------------------------
+# Metadata
+# ---------------------------------------------------------------------------
+metadata:
+  owner: data-engineering@company.com
+  data_classification: internal
+  tags:
+    domain: product
+    source_system: erp
+    environment: "{env}"
+    data_product: product_catalogue
+    pii: "false"
+    dq_enabled: "true"
+
+# ---------------------------------------------------------------------------
+# Data Quality Rules
+# ---------------------------------------------------------------------------
+dq_rules:
+  # Primary key integrity
+  - rule: not_null
+    column: product_id
+    severity: error
+
+  - rule: unique
+    column: product_id
+    severity: error
+
+  # Name must always be present
+  - rule: not_null
+    column: product_name
+    severity: error
+
+  # Pricing — must be positive (zero price blocks order processing)
+  - rule: positive_number
+    column: unit_price
+    severity: error
+    params:
+      allow_zero: false
+
+  # Stock cannot be negative (zero is valid — out of stock)
+  - rule: sql_expression
+    column: stock_quantity
+    severity: warning
+    params:
+      expression: "stock_quantity IS NULL OR stock_quantity >= 0"
+      description: "Stock quantity cannot be negative"
+
+  # Category — controlled vocabulary for reporting dimensions
+  - rule: allowed_values
+    column: category
+    severity: warning
+    params:
+      values:
+        - Electronics
+        - Software
+        - Hardware
+        - Services
+        - Accessories
+        - Peripherals
+        - Networking
+
+# ---------------------------------------------------------------------------
+# Schema Evolution (Milestone 5)
+# ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# Data Contract (Milestone 7)
+# ---------------------------------------------------------------------------
+contract:
+  name: products_data_contract
+  version: "1.0.0"
+  owner: data-engineering@company.com
+  domain: product
+  description: >
+    Formal data contract for the product catalogue entity. No PII — governs
+    pricing, inventory, and catalogue structure expectations.
+  criticality: high
+  expected_refresh: daily
+  validation_policy: WARNING_ONLY     # non-PII — log contract breaches as warnings
+
+  required_columns:
+    - product_id
+    - product_name
+    - unit_price
+    - is_active
+
+  primary_keys:
+    - product_id
+
+  allowed_datatypes:
+    product_id: string
+    product_name: string
+    unit_price: double
+    stock_quantity: integer
+    is_active: boolean
+    created_date: date
+
+  row_count:
+    min: 1
+    max: 5000000
+
+  required_dq_rules:
+    - not_null
+    - unique
+    - positive_number
+    - allowed_values
+    - sql_expression
+
+  schema_version_min: 1
+
+schema_evolution:
+  evolution_mode: ALLOW_NEW_COLUMNS   # product attributes may be extended by the source system
+  allow_nullable_changes: false
+  allow_type_promotion: true          # numeric widening (int → long) is safe for quantities/prices
+
+# ---------------------------------------------------------------------------
+# Transformation Engine (Milestone 6)
+# ---------------------------------------------------------------------------
+transformation_policy:
+  on_error: continue              # non-critical source — log and continue on transform failure
+
+transformations:
+  # Remove whitespace from catalogue text fields to prevent dimension mismatches
+  - type: trim_strings
+    params:
+      columns: [product_name, category, subcategory]
+    description: Trim whitespace from catalogue text fields
+
+  # Standardise category to upper case for consistent reporting dimensions
+  - type: upper_case
+    params:
+      columns: [category]
+    description: Normalise category to uppercase for reporting consistency
+
+  # Default null stock_quantity to 0 — downstream inventory logic treats null as missing data
+  - type: null_replacement
+    params:
+      column: stock_quantity
+      value: 0
+    description: Default null stock_quantity to 0 (out-of-stock interpretation)

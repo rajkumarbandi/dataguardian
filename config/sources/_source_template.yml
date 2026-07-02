@@ -1,0 +1,68 @@
+# DataGuardian Source Configuration Template
+# Copy this file to config/sources/{source_name}.yml and fill in the values.
+# See docs/runbooks/onboarding-new-source.md for full onboarding steps.
+
+source:
+  # Unique identifier for this source system. Used in table names and logging.
+  # Convention: {system}_{entity} in snake_case (e.g., erp_customers, crm_accounts)
+  name: <source_name>
+
+  # The canonical entity this source maps to.
+  # Must match a schema contract in config/schemas/{entity}.yml
+  entity: <entity_name>
+
+  # Connector type: adls | jdbc | api
+  connector: adls
+
+  # File format (for adls connector): parquet | csv | json | delta | avro
+  format: parquet
+
+  # Connection details — no credentials here. Secrets referenced by key name.
+  connection:
+    # For ADLS connector:
+    location: "{adls_root}/raw/{source_name}/"
+    # For JDBC connector (uncomment):
+    # host: "<hostname>"
+    # port: 1433
+    # database: "<database_name>"
+    # secret_scope: dataguardian-{env}-scope
+    # secret_key: <source_name>-jdbc-password
+    # username_secret_key: <source_name>-jdbc-username
+
+  # Schema contract and quality suite to apply
+  data_contract: schemas/<entity_name>.yml
+  quality_suite: quality/<entity_name>_rules.yml
+
+  # Column mappings from source names to canonical names.
+  # Only required when source column names differ from canonical names or aliases.
+  column_mappings: {}
+    # SourceColumnName: canonical_column_name
+    # CustID: customer_id
+    # FullName: full_name
+
+  # Ingestion schedule (cron expression)
+  schedule:
+    cron: "0 6 * * *"              # daily at 06:00 UTC
+    timezone: "UTC"
+
+  # Ingestion behavior
+  ingestion:
+    mode: incremental              # incremental | full_refresh
+    watermark_column: updated_at   # column used for incremental filtering (if mode=incremental)
+    partition_column: ingestion_date
+
+  # Stewardship configuration for this source
+  stewardship:
+    approvers:
+      - "steward@company.com"
+    escalation_contact: "data.owner@company.com"
+    sla_hours: 48                  # overrides environment default if set
+
+  # Optional: data retention policy (days). Defaults to environment setting.
+  # retention_days: 90
+
+  # Optional: tags for data catalog and lineage
+  tags:
+    source_system: <system_name>
+    data_domain: <domain>
+    data_classification: internal  # public | internal | confidential | restricted

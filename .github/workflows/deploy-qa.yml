@@ -1,0 +1,35 @@
+name: Deploy to QA
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+
+concurrency:
+  group: deploy-qa
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to QA
+    runs-on: ubuntu-latest
+    environment: qa                    # requires manual approval gate configured in GitHub
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Databricks CLI
+        uses: databricks/setup-cli@main
+
+      - name: Deploy bundle to QA
+        run: databricks bundle deploy --target qa
+        env:
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_QA_HOST }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_QA_TOKEN }}
+
+      - name: Run smoke test
+        run: |
+          echo "TODO: Run smoke test job against QA environment"
+          # databricks bundle run smoke_test_job --target qa
+        env:
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_QA_HOST }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_QA_TOKEN }}

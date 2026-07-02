@@ -1,0 +1,86 @@
+# DataGuardian — Bronze Ingestion Job
+#
+# Dedicated job for the Bronze layer only.
+# Reads from ADLS Gen2 raw zone, writes to Delta Bronze in Unity Catalog.
+#
+# Designed to run independently of Silver/Gold so that Bronze ingestion can
+# be retried or re-run without re-triggering downstream transformations.
+#
+# Job parameters passed to the notebook via base_parameters:
+#   env          — resolved from ${bundle.target} (dev | qa | prod)
+#   source_names — comma-separated source names, or "all" to process every
+#                  YAML file in config/sources/
+#
+# Deployment:
+#   databricks bundle deploy --target dev
+#   databricks bundle run dataguardian_bronze_ingestion --target prod
+
+resources:
+  jobs:
+    dataguardian_bronze_ingestion:
+      name: "dataguardian-bronze-ingestion-${bundle.target}"
+      description: >
+        DataGuardian Bronze ingestion: reads configured ERP sources from ADLS Gen2,
+        attaches metadata columns (_ingestion_timestamp, _batch_id, _source_system,
+        _load_date), and writes append-mode Delta tables to Unity Catalog Bronze schema.
+
+      # -----------------------------------------------------------------------
+      # Schedule — daily at 02:00 UTC, before Silver and DQ jobs
+      # -----------------------------------------------------------------------
+      schedule:
+        quartz_cron_expression: "0 0 2 * * ?"    # 02:00 UTC daily
+        timezone_id: UTC
+        pause_status: UNPAUSED
+
+      # -----------------------------------------------------------------------
+      # Notifications
+      # -----------------------------------------------------------------------
+      email_notifications:
+        on_failure:
+          - ${var.notification_email}
+        on_duration_warning_threshold_exceeded:
+          - ${var.notification_email}
+
+      health:
+        rules:
+          - metric: RUN_DURATION_SECONDS
+            op: GREATER_THAN
+            value: 7200     # alert if ingestion exceeds 2 hours
+
+      # -----------------------------------------------------------------------
+      # Tasks
+      # -----------------------------------------------------------------------
+      tasks:
+        - task_key: bronze_ingest_all
+          description: >
+            Ingest all active ERP sources from ADLS Gen2 into Bronze Delta tables.
+            One IngestionEngine.run() call per source; failures are isolated
+            per-source so a single bad source does not block others.
+          notebook_task:
+            notebook_path: "${workspace.root_path}/databricks/notebooks/ingestion/bronze_ingestion"
+            base_parameters:
+              env: "${bundle.target}"
+              source_names: "all"
+          existing_cluster_id: "${resources.clusters.dataguardian_shared.id}"
+          timeout_seconds: 7200      # 2-hour wall-clock limit
+          max_retries: 2
+          min_retry_interval_millis: 300000   # 5 minutes between retries
+          retry_on_timeout: true
+          run_if: ALL_SUCCESS
+
+      # -----------------------------------------------------------------------
+      # Run parameters override — allows ad-hoc single-source runs
+      # -----------------------------------------------------------------------
+      # To run a specific source only:
+      #   databricks bundle run dataguardian_bronze_ingestion \
+      #     --target prod \
+      #     --python-named-params '{"source_names": "customers"}'
+
+      # -----------------------------------------------------------------------
+      # Access control
+      # -----------------------------------------------------------------------
+      permissions:
+        - level: CAN_MANAGE_RUN
+          group_name: data-engineers
+        - level: CAN_VIEW
+          group_name: data-analysts

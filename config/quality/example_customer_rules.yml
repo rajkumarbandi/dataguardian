@@ -1,0 +1,38 @@
+# DataGuardian Quality Rule Suite — Customer Entity (Example)
+
+entity: customer
+version: "1.0"
+dq_threshold: 0.75
+
+rules:
+  - rule: completeness
+    id: complete_required_fields
+    weight: 0.35
+    columns: [customer_id, full_name, country_code, created_at, updated_at]
+    fail_on_empty_string: true
+
+  - rule: uniqueness
+    id: unique_customer_id
+    weight: 0.25
+    columns: [customer_id]
+
+  - rule: pattern
+    id: valid_email_format
+    weight: 0.20
+    column: email_address
+    pattern: "^[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}$"
+    nullable: true
+
+  - rule: range
+    id: valid_dob_range
+    weight: 0.10
+    column: date_of_birth
+    min_value: "1900-01-01"
+    max_value: "{today}"
+
+  - rule: referential
+    id: valid_country_code
+    weight: 0.10
+    column: country_code
+    reference_table: "{catalog}.gold.ref_countries"
+    reference_column: country_code

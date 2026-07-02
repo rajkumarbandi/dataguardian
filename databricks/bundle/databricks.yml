@@ -1,0 +1,212 @@
+# DataGuardian — Databricks Asset Bundle Root Configuration
+# Milestone 8: CI/CD, Packaging & Deployment
+#
+# https://docs.databricks.com/en/dev-tools/bundles/index.html
+#
+# Quick-start commands
+# --------------------
+#   databricks bundle validate                     # dry-run: syntax + auth check
+#   databricks bundle deploy --target dev          # deploy to dev workspace
+#   databricks bundle run silver_validation --target dev   # trigger a job run
+#
+# Environment promotion pattern (build once, promote everywhere)
+# --------------------------------------------------------------
+#   databricks bundle deploy --target test   # after dev passes CI
+#   databricks bundle deploy --target qa     # after test gate
+#   databricks bundle deploy --target prod   # after QA sign-off
+#
+# Only the variables below differ per target.  Notebooks, job definitions,
+# and source code are identical across all environments.
+
+bundle:
+  name: dataguardian
+
+# ---------------------------------------------------------------------------
+# Workspace
+# ---------------------------------------------------------------------------
+workspace:
+  host: ${DATABRICKS_HOST}
+  root_path: /Workspace/dataguardian   # same root path in every environment
+
+# ---------------------------------------------------------------------------
+# File sync — what gets uploaded to the workspace on every deploy
+# ---------------------------------------------------------------------------
+sync:
+  include:
+    - src/**
+    - config/**
+    - databricks/notebooks/**
+    - pyproject.toml
+    - requirements.txt
+  exclude:
+    - "**/__pycache__/**"
+    - "**/*.pyc"
+    - "**/*.egg-info/**"
+    - .git/**
+    - tests/**
+    - dist/**
+    - htmlcov/**
+    - .env
+    - .env.*
+    - "*.local"
+
+# ---------------------------------------------------------------------------
+# Bundle-level variables — defaults are DEV values.
+# Each target overrides only the variables that differ from dev.
+# ---------------------------------------------------------------------------
+variables:
+  # Core environment identity
+  environment:
+    description: "Pipeline environment name passed as a widget to all notebooks"
+    default: dev
+
+  # Unity Catalog
+  catalog:
+    description: "Unity Catalog name for this environment (dg_{env})"
+    default: dg_dev
+
+  # Storage
+  adls_root:
+    description: "ADLS Gen2 container root URI (abfss://...)"
+    default: "abfss://dataguardian-dev@dg-adls-dev.dfs.core.windows.net"
+
+  # Secrets
+  secret_scope:
+    description: "Databricks secret scope for runtime credentials"
+    default: dataguardian-dev-scope
+
+  # Logging
+  log_level:
+    description: "Pipeline log level — DEBUG | INFO | WARNING | ERROR"
+    default: DEBUG
+
+  # Compute — set these to real values in each workspace
+  spark_version:
+    description: "Databricks Runtime version for job clusters"
+    default: "14.3.x-scala2.12"
+
+  node_type_id:
+    description: "VM SKU for job cluster worker nodes"
+    default: Standard_DS3_v2
+
+  num_workers:
+    description: "Number of worker nodes for job clusters"
+    default: "2"
+
+  # Schedule (Quartz cron, UTC)
+  schedule_cron:
+    description: "Quartz cron expression for the Silver Validation job"
+    default: "0 0 6 * * ?"   # 06:00 UTC daily
+
+  # Notifications
+  notification_email:
+    description: "Email address for job failure alerts"
+    default: "dataguardian-alerts@company.com"
+
+  # Permissions — AAD group granted CAN_MANAGE_RUN on jobs
+  data_engineering_group:
+    description: "AAD group name granted CAN_MANAGE_RUN on all DataGuardian jobs"
+    default: data-engineering-dev
+
+  # SQL Warehouse — used by the Stewardship Portal (Databricks App)
+  sql_warehouse_id:
+    description: "Databricks SQL Warehouse ID for the Stewardship Portal"
+    default: ""
+
+  sql_warehouse_http_path:
+    description: "SQL Warehouse HTTP path (/sql/1.0/warehouses/<id>)"
+    default: ""
+
+  data_stewards_group:
+    description: "AAD group name granted CAN_VIEW on the Stewardship Portal"
+    default: data-stewards
+
+# ---------------------------------------------------------------------------
+# Resource includes — job, cluster, and app definitions live in resources/
+# Paths are relative to this file (databricks/bundle/).
+# ---------------------------------------------------------------------------
+include:
+  - resources/jobs/*.yml
+  - resources/clusters/*.yml
+  - resources/apps/*.yml
+
+# ---------------------------------------------------------------------------
+# Deployment targets
+#
+# Pattern: all targets share the same job definitions and notebook code.
+# Per-environment differences are expressed purely as variable overrides.
+# ---------------------------------------------------------------------------
+targets:
+
+  # -------------------------------------------------------------------------
+  # DEV — default target; developers push feature branches here
+  # mode: development isolates DEV resources with a [dev <username>] prefix
+  # -------------------------------------------------------------------------
+  dev:
+    mode: development
+    default: true
+    workspace:
+      host: ${DATABRICKS_HOST}
+    variables:
+      environment: dev
+      catalog: dg_dev
+      adls_root: "abfss://dataguardian-dev@dg-adls-dev.dfs.core.windows.net"
+      secret_scope: dataguardian-dev-scope
+      log_level: DEBUG
+      schedule_cron: "0 0 6 * * ?"
+      data_engineering_group: data-engineering-dev
+      num_workers: "2"
+
+  # -------------------------------------------------------------------------
+  # TEST — automated CI environment; runs on every PR merge to main
+  # mode: development keeps CI runs isolated from qa/prod
+  # -------------------------------------------------------------------------
+  test:
+    mode: development
+    workspace:
+      host: ${DATABRICKS_HOST}
+    variables:
+      environment: test
+      catalog: dg_test
+      adls_root: "abfss://dataguardian-test@dg-adls-test.dfs.core.windows.net"
+      secret_scope: dataguardian-test-scope
+      log_level: INFO
+      schedule_cron: "0 0 4 * * ?"
+      data_engineering_group: data-engineering-test
+      num_workers: "2"
+
+  # -------------------------------------------------------------------------
+  # QA — pre-production validation; deployed after CI gate passes
+  # mode: staging disables the [dev <username>] prefix; resources are shared
+  # -------------------------------------------------------------------------
+  qa:
+    mode: staging
+    workspace:
+      host: ${DATABRICKS_HOST}
+    variables:
+      environment: qa
+      catalog: dg_qa
+      adls_root: "abfss://dataguardian-qa@dg-adls-qa.dfs.core.windows.net"
+      secret_scope: dataguardian-qa-scope
+      log_level: INFO
+      schedule_cron: "0 0 3 * * ?"
+      data_engineering_group: data-engineering-qa
+      num_workers: "4"
+
+  # -------------------------------------------------------------------------
+  # PROD — production; deployed after QA sign-off via protected branch policy
+  # mode: production enforces strict naming and disables job pause-on-deploy
+  # -------------------------------------------------------------------------
+  prod:
+    mode: production
+    workspace:
+      host: ${DATABRICKS_HOST}
+    variables:
+      environment: prod
+      catalog: dg_prod
+      adls_root: "abfss://dataguardian-prod@dg-adls-prod.dfs.core.windows.net"
+      secret_scope: dataguardian-prod-scope
+      log_level: WARNING
+      schedule_cron: "0 0 2 * * ?"
+      data_engineering_group: data-engineering
+      num_workers: "8"

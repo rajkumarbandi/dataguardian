@@ -1,0 +1,54 @@
+name: Deploy to PROD
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Release tag to deploy (e.g., v1.2.0)"
+        required: true
+        type: string
+      confirmation:
+        description: "Type CONFIRM to proceed with production deployment"
+        required: true
+        type: string
+
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
+jobs:
+  validate-confirmation:
+    name: Validate Confirmation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check confirmation input
+        run: |
+          if [ "${{ github.event.inputs.confirmation }}" != "CONFIRM" ]; then
+            echo "Deployment not confirmed. Expected 'CONFIRM', got '${{ github.event.inputs.confirmation }}'"
+            exit 1
+          fi
+          echo "Confirmation validated."
+
+  deploy:
+    name: Deploy to PROD
+    runs-on: ubuntu-latest
+    environment: prod                  # requires senior team member approval in GitHub
+    needs: [validate-confirmation]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.release_tag }}
+
+      - name: Setup Databricks CLI
+        uses: databricks/setup-cli@main
+
+      - name: Deploy bundle to PROD
+        run: databricks bundle deploy --target prod
+        env:
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_PROD_HOST }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_PROD_TOKEN }}
+
+      - name: Create GitHub deployment record
+        run: |
+          echo "Deployed tag ${{ github.event.inputs.release_tag }} to PROD"
+          echo "Deployment commit: ${{ github.sha }}"

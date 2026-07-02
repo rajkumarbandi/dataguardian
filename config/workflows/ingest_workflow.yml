@@ -1,0 +1,45 @@
+# DataGuardian Workflow Configuration — Ingestion Pipeline
+# This file declares the logical workflow. The physical job definition is in
+# databricks/bundle/resources/jobs/ingestion_job.yml
+
+workflow:
+  name: dataguardian_ingest
+  description: "End-to-end ingestion pipeline: Bronze landing, Silver transformation, DQ evaluation"
+
+  tasks:
+    - name: bronze_ingestion
+      notebook: databricks/notebooks/ingestion/bronze_ingestion.py
+      depends_on: []
+      parameters:
+        source: "${source}"
+        env: "${env}"
+        batch_id: "${batch_id}"
+
+    - name: silver_transformation
+      notebook: databricks/notebooks/transformation/silver_transform.py
+      depends_on: [bronze_ingestion]
+      parameters:
+        entity: "${entity}"
+        env: "${env}"
+        batch_id: "${batch_id}"
+
+    - name: dq_evaluation
+      notebook: databricks/notebooks/quality/dq_checks.py
+      depends_on: [silver_transformation]
+      parameters:
+        entity: "${entity}"
+        env: "${env}"
+        batch_id: "${batch_id}"
+
+    - name: ai_profiling
+      notebook: databricks/notebooks/ai/ai_profiling.py
+      depends_on: [dq_evaluation]
+      optional: true                   # job continues if this task fails
+      parameters:
+        entity: "${entity}"
+        env: "${env}"
+        batch_id: "${batch_id}"
+
+  on_failure:
+    notify: ["dataguardian-alerts@company.com"]
+    alert_channel: "data-platform"

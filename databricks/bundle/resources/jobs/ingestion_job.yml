@@ -1,0 +1,53 @@
+resources:
+  jobs:
+    ingestion_job:
+      name: "dataguardian-ingestion-${bundle.target}"
+      description: "DataGuardian end-to-end ingestion pipeline: Bronze → Silver → DQ"
+
+      schedule:
+        quartz_cron_expression: "0 0 3 * * ?"   # 03:00 UTC daily
+        timezone_id: UTC
+        pause_status: UNPAUSED
+
+      email_notifications:
+        on_failure:
+          - ${var.notification_email}
+
+      tasks:
+        - task_key: bronze_ingestion
+          description: "Ingest raw data from source systems into Bronze layer"
+          notebook_task:
+            notebook_path: "databricks/notebooks/ingestion/bronze_ingestion"
+            base_parameters:
+              env: "${bundle.target}"
+              catalog: "${var.catalog}"
+          existing_cluster_id: "${resources.clusters.dataguardian_shared.id}"
+          timeout_seconds: 3600
+          max_retries: 2
+          retry_on_timeout: true
+
+        - task_key: silver_transformation
+          description: "Apply schema mapping and standardization to produce Silver records"
+          depends_on:
+            - task_key: bronze_ingestion
+          notebook_task:
+            notebook_path: "databricks/notebooks/transformation/silver_transform"
+            base_parameters:
+              env: "${bundle.target}"
+              catalog: "${var.catalog}"
+          existing_cluster_id: "${resources.clusters.dataguardian_shared.id}"
+          timeout_seconds: 7200
+          max_retries: 1
+
+        - task_key: dq_evaluation
+          description: "Evaluate data quality rules and route failed records to Stewardship"
+          depends_on:
+            - task_key: silver_transformation
+          notebook_task:
+            notebook_path: "databricks/notebooks/quality/dq_checks"
+            base_parameters:
+              env: "${bundle.target}"
+              catalog: "${var.catalog}"
+          existing_cluster_id: "${resources.clusters.dataguardian_shared.id}"
+          timeout_seconds: 3600
+          max_retries: 1

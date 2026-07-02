@@ -1,0 +1,51 @@
+# DataGuardian Schema Contract Template
+# Copy to config/schemas/{entity_name}.yml and define the canonical schema.
+# This contract is the authoritative definition of the entity's Gold-layer shape.
+
+entity: <entity_name>
+version: "1.0"
+description: "<Human-readable description of this entity>"
+
+owner: "<data.owner@company.com>"
+steward: "<data.steward@company.com>"
+data_domain: "<domain>"
+
+# Columns that uniquely identify a record. Used for deduplication and Gold merge.
+business_key:
+  - <column_name>
+
+# Canonical column definitions
+columns:
+  - name: <column_name>
+    type: string                   # string | integer | long | double | date | timestamp | boolean
+    nullable: false
+    description: "<Description of this column>"
+    pii: false                     # true = excluded from AI prompts, column-masked in UC
+
+    # Optional: alternative source names that map to this column without explicit mapping
+    aliases:
+      - <source_alias_1>
+      - <source_alias_2>
+
+    # Optional: validation rule inline (for simple cases)
+    validation:
+      # pattern: "^[a-zA-Z0-9]+$"
+      # min_value: 0
+      # max_value: 999999
+      # reference_table: "{catalog}.gold.ref_{table}"
+      # reference_column: <column>
+
+  # Repeat for each column...
+
+# Metadata — do not modify these; they are auto-appended by the pipeline
+_metadata:
+  - name: _ingestion_timestamp
+    type: timestamp
+  - name: _source_system
+    type: string
+  - name: _batch_id
+    type: string
+  - name: _dq_score
+    type: double
+  - name: _requires_stewardship
+    type: boolean

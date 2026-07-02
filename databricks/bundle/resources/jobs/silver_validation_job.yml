@@ -1,0 +1,104 @@
+# DataGuardian — Silver Validation Job
+#
+# Runs Bronze ingestion first, then Silver validation as a dependent task.
+# Both tasks share the same job so they can be monitored together and the
+# Silver task automatically inherits the Bronze batch_id via the "latest"
+# widget default.
+#
+# Dependency:
+#   silver_validate depends_on bronze_ingest_all
+#   → if ingestion fails, Silver validation is skipped automatically
+#
+# Deployment:
+#   databricks bundle deploy --target dev
+#   databricks bundle run dataguardian_silver_validation --target prod
+#
+# To validate a specific source only:
+#   databricks bundle run dataguardian_silver_validation \
+#     --target dev \
+#     --python-named-params '{"source_name": "customers"}'
+
+resources:
+  jobs:
+    dataguardian_silver_validation:
+      name: "dataguardian-silver-validation-${bundle.target}"
+      description: >
+        DataGuardian end-to-end pipeline: Bronze ingestion from ADLS Gen2 followed
+        by YAML-driven Data Quality validation and Silver layer promotion.
+        Failed records are routed to bronze.*_failed tables; violations are
+        persisted to audit.dq_violations; run metrics land in audit.dq_metrics.
+
+      # -----------------------------------------------------------------------
+      # Schedule — daily at 03:00 UTC (1 hour after Bronze ingestion window)
+      # -----------------------------------------------------------------------
+      schedule:
+        quartz_cron_expression: "0 0 3 * * ?"    # 03:00 UTC daily
+        timezone_id: UTC
+        pause_status: UNPAUSED
+
+      # -----------------------------------------------------------------------
+      # Notifications
+      # -----------------------------------------------------------------------
+      email_notifications:
+        on_failure:
+          - ${var.notification_email}
+        on_duration_warning_threshold_exceeded:
+          - ${var.notification_email}
+
+      health:
+        rules:
+          - metric: RUN_DURATION_SECONDS
+            op: GREATER_THAN
+            value: 10800    # alert if the full pipeline exceeds 3 hours
+
+      # -----------------------------------------------------------------------
+      # Tasks
+      # -----------------------------------------------------------------------
+      tasks:
+        # Task 1: Bronze ingestion — prerequisite for Silver validation
+        - task_key: bronze_ingest_all
+          description: >
+            Read all active ERP sources from ADLS Gen2 and write raw records
+            to Bronze Delta tables in Unity Catalog.
+          notebook_task:
+            notebook_path: "${workspace.root_path}/databricks/notebooks/ingestion/bronze_ingestion"
+            base_parameters:
+              env: "${bundle.target}"
+              source_names: "all"
+          existing_cluster_id: "${resources.clusters.dataguardian_shared.id}"
+          timeout_seconds: 7200
+          max_retries: 2
+          min_retry_interval_millis: 300000
+          retry_on_timeout: true
+          run_if: ALL_SUCCESS
+
+        # Task 2: Silver validation — runs only after Bronze succeeds
+        - task_key: silver_validate
+          description: >
+            Apply YAML-declared DQ rules to the latest Bronze batch for all sources.
+            Passing records are written to Silver Delta tables; failures are routed
+            to audit tables for stewardship review.
+          depends_on:
+            - task_key: bronze_ingest_all
+          notebook_task:
+            notebook_path: "${workspace.root_path}/databricks/notebooks/quality/silver_validation"
+            base_parameters:
+              env: "${bundle.target}"
+              source_name: "all"
+              batch_id: "latest"
+              secrets_scope: "${var.secret_scope}"
+          existing_cluster_id: "${resources.clusters.dataguardian_shared.id}"
+          timeout_seconds: 7200
+          max_retries: 1
+          min_retry_interval_millis: 300000
+          retry_on_timeout: false
+          run_if: ALL_SUCCESS
+
+      # -----------------------------------------------------------------------
+      # Access control
+      # -----------------------------------------------------------------------
+      permissions:
+        - level: CAN_MANAGE_RUN
+          group_name: data-engineers
+        - level: CAN_VIEW
+          group_name: data-analysts

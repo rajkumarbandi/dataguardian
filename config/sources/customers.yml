@@ -1,0 +1,257 @@
+# DataGuardian — Source Configuration: ERP Customers
+#
+# Daily full snapshot of the customer master from the ERP system.
+# Bronze table retains every raw column exactly as received.
+#
+# Token resolution at runtime (ConfigLoader._build_substitutions):
+#   {env}       → dev | qa | prod | test
+#   {catalog}   → dg_dev | dg_qa | dg_prod | dg_test
+#   {adls_root} → abfss://dataguardian-{env}@dg-adls-{env}.dfs.core.windows.net
+#                 OR  sample_data  (in test environment)
+#   {today}     → YYYY-MM-DD (pipeline start date)
+#
+# ADLS path structure mirrors the source system name and entity:
+#   {adls_root}/raw/erp/customers/
+#
+# Expected file naming convention from source system:
+#   customers_{YYYYMMDD}.csv  (daily snapshot, all records)
+
+name: customers
+system: erp
+description: >
+  Customer master data extracted from the ERP system as a daily full snapshot.
+  Contains PII (name, email, phone). The Bronze table retains every raw column
+  exactly as received — no transformations, no masking at this layer.
+
+# ---------------------------------------------------------------------------
+# Connector
+# ---------------------------------------------------------------------------
+connector:
+  type: csv
+  location: "{adls_root}/raw/erp/customers"
+  options:
+    header: "true"
+    delimiter: ","
+    encoding: UTF-8
+    quote: '"'
+    multiLine: "false"
+    nullValue: ""
+    dateFormat: yyyy-MM-dd
+    timestampFormat: "yyyy-MM-dd HH:mm:ss"
+
+# ---------------------------------------------------------------------------
+# Schema — declared to prevent inference drift between runs
+# ---------------------------------------------------------------------------
+schema:
+  - name: customer_id
+    type: string
+    nullable: false
+    description: Natural key from the ERP system
+
+  - name: first_name
+    type: string
+    nullable: true
+    description: Customer first name (PII)
+
+  - name: last_name
+    type: string
+    nullable: true
+    description: Customer last name (PII)
+
+  - name: email
+    type: string
+    nullable: true
+    description: Primary contact email (PII)
+
+  - name: phone
+    type: string
+    nullable: true
+    description: Primary contact phone number (PII)
+
+  - name: country_code
+    type: string
+    nullable: true
+    description: ISO 3166-1 alpha-2 country code
+
+  - name: created_date
+    type: date
+    nullable: true
+    description: Date the customer record was created in the ERP
+
+  - name: is_active
+    type: boolean
+    nullable: true
+    description: Whether the customer account is currently active
+
+  - name: customer_segment
+    type: string
+    nullable: true
+    description: Segment classification (Enterprise, SMB, Startup, Individual)
+
+  - name: annual_revenue
+    type: double
+    nullable: true
+    description: Estimated annual revenue in USD
+
+# ---------------------------------------------------------------------------
+# Target
+# ---------------------------------------------------------------------------
+target:
+  catalog: "{catalog}"
+  schema: bronze
+  table: erp_customers
+  load_type: append
+  partition_by: _load_date
+
+# ---------------------------------------------------------------------------
+# Metadata
+# ---------------------------------------------------------------------------
+metadata:
+  owner: data-engineering@company.com
+  data_classification: confidential
+  tags:
+    domain: customer
+    source_system: erp
+    environment: "{env}"
+    data_product: customer_master
+    pii: "true"
+    dq_enabled: "true"
+
+# ---------------------------------------------------------------------------
+# Data Quality Rules
+# ---------------------------------------------------------------------------
+dq_rules:
+  # Primary key integrity
+  - rule: not_null
+    column: customer_id
+    severity: error
+
+  - rule: unique
+    column: customer_id
+    severity: error
+
+  # Name completeness (warning — downstream can handle partial names)
+  - rule: not_null
+    column: first_name
+    severity: warning
+
+  # Contact validity
+  - rule: email
+    column: email
+    severity: error
+
+  # Geography
+  - rule: country_code
+    column: country_code
+    severity: error
+
+  # Date sanity — no future-dated customer creation records
+  - rule: future_date
+    column: created_date
+    severity: error
+
+  # Segment classification — must be one of the four supported segments
+  - rule: allowed_values
+    column: customer_segment
+    severity: error
+    params:
+      values:
+        - Enterprise
+        - SMB
+        - Startup
+        - Individual
+
+  # Revenue — must be positive when present
+  - rule: positive_number
+    column: annual_revenue
+    severity: warning
+    params:
+      allow_zero: false
+
+# ---------------------------------------------------------------------------
+# Schema Evolution (Milestone 5)
+# ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# Data Contract (Milestone 7)
+# ---------------------------------------------------------------------------
+contract:
+  name: customers_data_contract
+  version: "1.0.0"
+  owner: data-engineering@company.com
+  domain: customer
+  description: >
+    Formal data contract for the customer master entity. Governs structure,
+    data quality, and ownership expectations for PII-classified customer data.
+  criticality: critical
+  expected_refresh: daily
+  validation_policy: FAIL_PIPELINE    # PII data — any contract breach must stop the pipeline
+
+  required_columns:
+    - customer_id
+    - first_name
+    - email
+    - country_code
+    - is_active
+
+  primary_keys:
+    - customer_id
+
+  non_nullable_columns:
+    - customer_id
+
+  allowed_datatypes:
+    customer_id: string
+    is_active: boolean
+    annual_revenue: double
+    created_date: date
+
+  row_count:
+    min: 1                          # at least one customer must be present
+    max: 50000000                   # alert if snapshot exceeds 50M rows (unexpected explosion)
+
+  required_dq_rules:
+    - not_null
+    - unique
+    - email
+    - country_code
+    - future_date
+    - allowed_values
+
+  schema_version_min: 1
+
+schema_evolution:
+  evolution_mode: STRICT          # customer schema is PII-classified — no unreviewed changes
+  allow_nullable_changes: false   # nullability changes require explicit schema review
+  allow_type_promotion: false
+
+# ---------------------------------------------------------------------------
+# Transformation Engine (Milestone 6)
+# ---------------------------------------------------------------------------
+transformation_policy:
+  on_error: fail_fast             # PII source — any transformation failure must abort the pipeline
+
+transformations:
+  # Remove accidental leading/trailing whitespace from all string contact fields
+  - type: trim_strings
+    params:
+      columns: [first_name, last_name, email, phone]
+    description: Trim whitespace from contact fields
+
+  # Normalise country_code to upper case (source may send "gb" or "GB")
+  - type: upper_case
+    params:
+      columns: [country_code]
+    description: Normalise country_code to ISO uppercase
+
+  # Normalise email to lower case before DQ email-format check runs
+  - type: lower_case
+    params:
+      columns: [email]
+    description: Normalise email to lowercase before DQ validation
+
+  # Replace null segment with a default so downstream CASE logic does not break
+  - type: null_replacement
+    params:
+      column: customer_segment
+      value: Unknown
+    description: Default null customer_segment to 'Unknown'

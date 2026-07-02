@@ -1,0 +1,41 @@
+# DataGuardian — AI Intelligence Layer Configuration
+# All sensitive values (API keys, endpoints) are resolved via SecretsManager or env vars.
+# Override provider at runtime: export DG_AI_PROVIDER=openai
+
+provider:
+  name: mock                          # mock | openai | azure_openai | anthropic
+  model: mock-gpt-4
+  # Azure OpenAI (used when name: azure_openai)
+  deployment_name: gpt-4o
+  api_version: "2024-02-01"
+  endpoint_secret: azure_openai_endpoint    # SecretsManager key or env AZURE_OPENAI_ENDPOINT
+  api_key_secret: azure_openai_api_key      # SecretsManager key or env AZURE_OPENAI_API_KEY
+
+temperature: 0.1
+max_tokens: 2048
+
+cache:
+  enabled: true
+  ttl_seconds: 3600       # 1 hour
+
+retry:
+  max_attempts: 3
+  backoff_seconds: 1.0
+  max_backoff_seconds: 30.0
+
+# USD cost per 1 000 tokens — used for cost tracking display only
+pricing:
+  prompt_per_1k: 0.0025
+  completion_per_1k: 0.0100
+
+prompts_dir: config/prompts
+
+features:
+  dq_assistant: true
+  schema_mapper: true
+  root_cause_analyzer: true
+  duplicate_detector: true
+  comment_summarizer: true
+  natural_language_sql: true
+  profiling_assistant: true
+  explanation_engine: true

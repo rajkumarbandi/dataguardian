@@ -1,0 +1,126 @@
+# DataGuardian — PROD Environment Configuration
+#
+# Production configuration. All changes go through a PR + QA promotion gate.
+# No direct modifications to this file outside the release process.
+#
+# ADLS account name placeholder: replace "dg-adls-prod" with your actual
+# Azure Data Lake Storage Gen2 account name before deploying.
+
+environment: prod
+
+# ---------------------------------------------------------------------------
+# Unity Catalog
+# ---------------------------------------------------------------------------
+unity_catalog:
+  catalog: dg_prod
+  schemas:
+    bronze: bronze
+    silver: silver
+    stewardship: stewardship
+    gold: gold
+    audit: audit
+
+# ---------------------------------------------------------------------------
+# Storage — Azure Data Lake Storage Gen2
+# ---------------------------------------------------------------------------
+storage:
+  adls_account: dg-adls-prod                        # replace with actual account name
+  adls_container: dataguardian-prod
+  adls_root: "abfss://dataguardian-prod@dg-adls-prod.dfs.core.windows.net"
+  checkpoint_location: "abfss://dataguardian-prod@dg-adls-prod.dfs.core.windows.net/_checkpoints"
+  raw_zone: "abfss://dataguardian-prod@dg-adls-prod.dfs.core.windows.net/raw"
+  archive_zone: "abfss://dataguardian-prod@dg-adls-prod.dfs.core.windows.net/archive"
+
+# ---------------------------------------------------------------------------
+# Databricks workspace
+# ---------------------------------------------------------------------------
+databricks:
+  secret_scope: dataguardian-prod-scope
+  cluster_policy_id: ""
+  repo_path: /Repos/prod/dataguardian
+
+# ---------------------------------------------------------------------------
+# Ingestion pipeline
+# ---------------------------------------------------------------------------
+ingestion:
+  default_partition_column: _load_date
+  batch_size_rows: 1000000
+  retry_attempts: 5
+  retry_delay_seconds: 120
+  archive_source_files: true
+
+# ---------------------------------------------------------------------------
+# Data Quality (future — M3)
+# ---------------------------------------------------------------------------
+quality:
+  default_dq_threshold: 0.80                        # stricter threshold in production
+  fail_on_threshold_breach: true
+
+# ---------------------------------------------------------------------------
+# Stewardship (future — M4)
+# ---------------------------------------------------------------------------
+stewardship:
+  sla_hours: 48
+  notifications_enabled: true
+  notification_recipients:
+    - dataguardian-alerts@company.com
+  escalation_alert_recipients:
+    - data-platform-oncall@company.com
+  default_approvers: []
+
+# ---------------------------------------------------------------------------
+# AI enrichment (future — M5)
+# ---------------------------------------------------------------------------
+ai:
+  enabled: true
+  provider: azure_openai
+
+# ---------------------------------------------------------------------------
+# Logging
+# ---------------------------------------------------------------------------
+logging:
+  level: INFO
+  format: json
+
+# ---------------------------------------------------------------------------
+# Spark configuration overrides
+# ---------------------------------------------------------------------------
+spark:
+  shuffle_partitions: 400                           # tuned for large production DataFrames
+  adaptive_query_execution: true
+  broadcast_threshold_mb: 100
+
+# ---------------------------------------------------------------------------
+# Pipeline — auditing, versioning, retry (Milestone 4)
+# ---------------------------------------------------------------------------
+pipeline:
+  pipeline_name: dataguardian-erp
+  pipeline_version: "1.0.0"
+  audit_enabled: true
+  retry_policy:
+    max_attempts: 5                                 # maximum resilience in production
+    initial_delay_seconds: 2.0
+    backoff_multiplier: 2.0
+    max_delay_seconds: 120.0
+
+# ---------------------------------------------------------------------------
+# Schema Registry — drift detection and version tracking (Milestone 5)
+# ---------------------------------------------------------------------------
+schema_registry:
+  schema_registry_enabled: true                  # full registry in production
+  schema_audit_enabled: true                     # complete audit trail required
+  default_evolution_mode: STRICT                 # production schema changes must be deliberate
+
+# ---------------------------------------------------------------------------
+# Transformation Engine (Milestone 6)
+# ---------------------------------------------------------------------------
+transformation:
+  audit_enabled: true                            # full transformation audit trail in production
+
+# ---------------------------------------------------------------------------
+# Contract Validation (Milestone 7)
+# ---------------------------------------------------------------------------
+contract_validation:
+  contract_validation_enabled: true
+  contract_audit_enabled: true
+  default_contract_policy: FAIL_PIPELINE         # production contracts must be honoured

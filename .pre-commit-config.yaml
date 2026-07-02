@@ -1,0 +1,76 @@
+# DataGuardian — Pre-commit Hook Configuration
+#
+# Setup:
+#   pip install pre-commit
+#   pre-commit install
+#
+# Run manually:
+#   pre-commit run --all-files
+#
+# Hooks run automatically before every `git commit`.
+# CI also runs `pre-commit run --all-files` to catch anything that slipped through.
+
+repos:
+  # ---------------------------------------------------------------------------
+  # General file hygiene
+  # ---------------------------------------------------------------------------
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]
+      - id: end-of-file-fixer
+      - id: check-yaml
+        args: [--allow-multiple-documents]
+      - id: check-toml
+      - id: check-json
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: [--maxkb=500]
+      - id: mixed-line-ending
+        args: [--fix=lf]
+      - id: detect-private-key            # block accidental commit of private keys
+
+  # ---------------------------------------------------------------------------
+  # Secret scanning
+  # ---------------------------------------------------------------------------
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.18.4
+    hooks:
+      - id: gitleaks
+        name: Scan for secrets (gitleaks)
+
+  # ---------------------------------------------------------------------------
+  # Python — Ruff (lint + format)
+  # ---------------------------------------------------------------------------
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.4.10
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+
+  # ---------------------------------------------------------------------------
+  # Python — mypy (type checking)
+  # ---------------------------------------------------------------------------
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.10.0
+    hooks:
+      - id: mypy
+        additional_dependencies:
+          - pydantic>=2.5
+          - types-pyyaml>=6.0
+        args: [--config-file=pyproject.toml]
+        files: ^src/
+
+  # ---------------------------------------------------------------------------
+  # YAML — config file validation
+  # ---------------------------------------------------------------------------
+  - repo: local
+    hooks:
+      - id: validate-dataguardian-config
+        name: Validate DataGuardian YAML config
+        language: python
+        entry: python scripts/validate_config.py --env dev
+        pass_filenames: false
+        files: ^config/

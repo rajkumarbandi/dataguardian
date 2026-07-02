@@ -1,0 +1,31 @@
+product_id,product_name,category,subcategory,unit_price,currency,stock_quantity,supplier_id,is_active,created_date
+P0001,Wireless Ergonomic Keyboard,Electronics,Peripherals,79.99,USD,450,SUP001,true,2020-01-15
+P0002,27-inch 4K Monitor,Electronics,Displays,399.00,USD,120,SUP002,true,2019-11-20
+P0003,,Electronics,Networking,249.00,USD,85,SUP001,true,2021-03-10
+P0004,Premium Office Chair,Furniture,Seating,549.00,USD,60,SUP003,true,2020-06-05
+P0005,USB-C Hub Pro (7-port),Electronics,Peripherals,-29.99,USD,310,SUP001,false,2022-01-18
+P0006,Standing Desk (Electric),Furniture,Desks,899.00,USD,35,SUP003,true,2021-08-22
+P0007,Enterprise Antivirus Suite (1yr),Software,Security,199.00,USD,9999,SUP004,true,2019-05-30
+P0008,Mechanical Keyboard RGB,Electronics,Peripherals,129.00,USD,,SUP001,true,2022-03-14
+P0009,Cloud Backup Solution (1yr),Software,Infrastructure,299.00,USD,9999,SUP004,true,2020-09-01
+P0010,Noise-Cancelling Headphones,Electronics,Audio,249.00,USD,200,SUP002,true,2021-02-28
+P0011,Mobile Workstation Laptop,Electronics,Computers,1499.00,USD,45,SUP005,true,2022-07-11
+P0012,Printer Paper A4 (5-ream carton),Office_Supplies,Paper,42.50,USD,1200,SUP006,true,2019-03-17
+P0013,Executive Whiteboard 180cm,Furniture,Presentation,285.00,USD,28,SUP003,false,2020-11-04
+P0014,Video Conferencing Camera 4K,Electronics,AV_Equipment,319.00,USD,95,SUP002,true,2021-10-19
+P0015,Basic USB Mouse,Electronics,Peripherals,0.00,USD,500,SUP001,true,2019-07-23
+P0016,CRM Enterprise License (1yr),Software,Business_Apps,1200.00,USD,9999,SUP004,true,2020-04-08
+P0017,Ergonomic Wrist Rest,Office_Supplies,Accessories,24.99,USD,680,SUP006,true,2022-05-30
+P0018,Server Rack 42U,Electronics,Infrastructure,-1800.00,USD,12,SUP005,true,2021-01-07
+P0019,Data Analytics Platform (1yr),Software,Analytics,4999.00,USD,9999,SUP004,true,2023-02-15
+P0020,Adjustable Monitor Arm,Furniture,Accessories,89.00,USD,175,SUP003,true,2020-08-26
+P0021,,Office_Supplies,Binding,18.75,USD,950,SUP006,true,2022-09-12
+P0022,Network Security Firewall,Electronics,Networking,2199.00,USD,22,SUP001,true,2021-04-03
+P0023,Portable Projector FHD,Electronics,AV_Equipment,459.00,USD,55,SUP002,false,2019-12-09
+P0024,Desk Lamp with USB Charger,Office_Supplies,Lighting,49.00,USD,,SUP006,true,2023-01-27
+P0025,Noise-Cancelling Headphones,Electronics,Audio,249.00,USD,200,SUP002,true,2021-02-28
+P0026,Colour Laser Printer,Electronics,Printers,629.00,USD,40,SUP005,true,2020-07-14
+P0027,,Furniture,Storage,175.00,USD,30,SUP003,true,2022-11-01
+P0028,HR Management Software (1yr),Software,Business_Apps,2400.00,USD,9999,SUP004,true,2021-06-18
+P0029,Webcam HD 1080p,Electronics,Peripherals,89.00,USD,320,SUP002,true,2023-04-22
+P0030,Office Desk (L-shaped),Furniture,Desks,699.00,USD,18,SUP003,true,2020-02-11

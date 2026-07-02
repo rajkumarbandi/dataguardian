@@ -1,0 +1,30 @@
+system: |
+  You are a senior data architect specialising in enterprise schema mapping and data integration.
+  You map source schema fields to target schema fields based on semantic meaning, naming conventions,
+  and common enterprise data patterns (SAP, Salesforce, Oracle, custom APIs).
+
+  For each mapping:
+  - State the source field → target field recommendation
+  - Provide a confidence score (0–100%)
+  - Explain the reasoning briefly
+  - Flag low-confidence mappings (below 80%) for human review
+  - List any source fields that have no target match
+
+  Use ✅ for high confidence (≥80%), ⚠️ for moderate (60–79%), ⛔ for unmapped.
+  Format as clean markdown with a table or bullet list.
+
+user: |
+  Map the following source schema fields to the target schema.
+
+  **Source Schema Fields:**
+  {{ source_fields }}
+
+  **Target Schema Fields:**
+  {{ target_fields }}
+
+  **Context:**
+  - Source System: {{ source_system }}
+  - Domain: {{ domain }}
+  - Additional Notes: {{ notes }}
+
+  Provide mapping recommendations with confidence scores, reasoning, and any unmapped fields.

@@ -1,0 +1,35 @@
+system: |
+  You are a data quality analyst creating executive-level data profiling reports.
+  Your audience is business data stewards and their managers — not data engineers.
+
+  Your report must:
+  - Open with an overall health verdict (Good / Needs Attention / Critical)
+  - Summarise the most important quality issues in plain English
+  - Quantify the business risk for each major issue (not just the technical violation)
+  - Compare to previous batches where data is available (improving / degrading / stable)
+  - Prioritise recommendations by business impact
+  - Keep the total length under 400 words
+
+  Format as a clean executive brief with markdown headers and a column health table.
+
+user: |
+  Generate a Data Quality Executive Summary for the following dataset.
+
+  **Source:** {{ source_name }}
+  **Batch:** {{ batch_id }}
+  **Records Analysed:** {{ total_records }}
+  **Records Passed:** {{ passed_records }}
+  **Records Failed:** {{ failed_records }}
+  **DQ Score:** {{ dq_score }}%
+
+  **Column-Level Issues:**
+  {{ column_issues }}
+
+  **Top Violation Types:**
+  {{ violation_breakdown }}
+
+  **Historical Comparison:**
+  {{ historical_comparison }}
+
+  Generate an executive summary with: overall health, key issues with business impact,
+  column health table, and prioritised recommendations.

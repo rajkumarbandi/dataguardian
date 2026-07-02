@@ -1,0 +1,30 @@
+# Databricks Apps configuration for the DataGuardian Stewardship Portal
+#
+# Deploy via:
+#   databricks bundle deploy --target prod
+#   databricks apps deploy stewardship-portal --source-code-path /Workspace/dataguardian/src/app
+
+command:
+  - python
+  - -m
+  - streamlit
+  - run
+  - app.py
+  - --server.port=8501
+  - --server.address=0.0.0.0
+  - --server.headless=true
+  - --server.enableCORS=false
+  - --browser.gatherUsageStats=false
+
+env:
+  - name: DG_CATALOG
+    valueFrom:
+      configVariable: catalog
+  - name: DG_ENV
+    valueFrom:
+      configVariable: environment
+  - name: DG_WAREHOUSE_HTTP_PATH
+    valueFrom:
+      configVariable: sql_warehouse_http_path
+  - name: DG_DEMO_MODE
+    value: "false"

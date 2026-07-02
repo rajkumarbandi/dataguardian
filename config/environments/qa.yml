@@ -1,0 +1,124 @@
+# DataGuardian — QA Environment Configuration
+#
+# Mirrors production topology but with separate ADLS container and catalog.
+# Integration tests and pre-production validation runs against this environment.
+#
+# ADLS account name placeholder: replace "dg-adls-qa" with your actual
+# Azure Data Lake Storage Gen2 account name before deploying.
+
+environment: qa
+
+# ---------------------------------------------------------------------------
+# Unity Catalog
+# ---------------------------------------------------------------------------
+unity_catalog:
+  catalog: dg_qa
+  schemas:
+    bronze: bronze
+    silver: silver
+    stewardship: stewardship
+    gold: gold
+    audit: audit
+
+# ---------------------------------------------------------------------------
+# Storage — Azure Data Lake Storage Gen2
+# ---------------------------------------------------------------------------
+storage:
+  adls_account: dg-adls-qa                          # replace with actual account name
+  adls_container: dataguardian-qa
+  adls_root: "abfss://dataguardian-qa@dg-adls-qa.dfs.core.windows.net"
+  checkpoint_location: "abfss://dataguardian-qa@dg-adls-qa.dfs.core.windows.net/_checkpoints"
+  raw_zone: "abfss://dataguardian-qa@dg-adls-qa.dfs.core.windows.net/raw"
+  archive_zone: "abfss://dataguardian-qa@dg-adls-qa.dfs.core.windows.net/archive"
+
+# ---------------------------------------------------------------------------
+# Databricks workspace
+# ---------------------------------------------------------------------------
+databricks:
+  secret_scope: dataguardian-qa-scope
+  cluster_policy_id: ""
+  repo_path: /Repos/qa/dataguardian
+
+# ---------------------------------------------------------------------------
+# Ingestion pipeline
+# ---------------------------------------------------------------------------
+ingestion:
+  default_partition_column: _load_date
+  batch_size_rows: 500000
+  retry_attempts: 3
+  retry_delay_seconds: 60
+  archive_source_files: true
+
+# ---------------------------------------------------------------------------
+# Data Quality (future — M3)
+# ---------------------------------------------------------------------------
+quality:
+  default_dq_threshold: 0.75
+  fail_on_threshold_breach: true
+
+# ---------------------------------------------------------------------------
+# Stewardship (future — M4)
+# ---------------------------------------------------------------------------
+stewardship:
+  sla_hours: 24
+  notifications_enabled: true
+  notification_recipients:
+    - dataguardian-qa-alerts@company.com
+  default_approvers: []
+
+# ---------------------------------------------------------------------------
+# AI enrichment (future — M5)
+# ---------------------------------------------------------------------------
+ai:
+  enabled: true
+  provider: azure_openai
+
+# ---------------------------------------------------------------------------
+# Logging
+# ---------------------------------------------------------------------------
+logging:
+  level: INFO
+  format: json
+
+# ---------------------------------------------------------------------------
+# Spark configuration overrides
+# ---------------------------------------------------------------------------
+spark:
+  shuffle_partitions: 200
+  adaptive_query_execution: true
+  broadcast_threshold_mb: 50
+
+# ---------------------------------------------------------------------------
+# Pipeline — auditing, versioning, retry (Milestone 4)
+# ---------------------------------------------------------------------------
+pipeline:
+  pipeline_name: dataguardian-erp
+  pipeline_version: "1.0.0"
+  audit_enabled: true
+  retry_policy:
+    max_attempts: 3
+    initial_delay_seconds: 2.0
+    backoff_multiplier: 2.0
+    max_delay_seconds: 60.0
+
+# ---------------------------------------------------------------------------
+# Schema Registry — drift detection and version tracking (Milestone 5)
+# ---------------------------------------------------------------------------
+schema_registry:
+  schema_registry_enabled: true                  # full registry in QA mirrors production
+  schema_audit_enabled: true
+  default_evolution_mode: STRICT                 # strict in QA — matches production behaviour
+
+# ---------------------------------------------------------------------------
+# Transformation Engine (Milestone 6)
+# ---------------------------------------------------------------------------
+transformation:
+  audit_enabled: true
+
+# ---------------------------------------------------------------------------
+# Contract Validation (Milestone 7)
+# ---------------------------------------------------------------------------
+contract_validation:
+  contract_validation_enabled: true
+  contract_audit_enabled: true
+  default_contract_policy: FAIL_PIPELINE         # strict in QA — mirrors production

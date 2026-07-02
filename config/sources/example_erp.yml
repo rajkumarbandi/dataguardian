@@ -1,0 +1,44 @@
+# DataGuardian Source Configuration — Example ERP Customer Source
+# This is an example configuration for illustrative purposes.
+
+source:
+  name: erp_customers
+  entity: customer
+  connector: adls
+  format: parquet
+
+  connection:
+    location: "{adls_root}/raw/erp/customers/"
+
+  data_contract: schemas/example_customer.yml
+  quality_suite: quality/example_customer_rules.yml
+
+  column_mappings:
+    CustID: customer_id
+    FullName: full_name
+    EmailAddr: email_address
+    DOB: date_of_birth
+    CountryCode: country_code
+    PhoneNum: phone_number
+    CreatedOn: created_at
+    ModifiedOn: updated_at
+
+  schedule:
+    cron: "0 3 * * *"
+    timezone: "UTC"
+
+  ingestion:
+    mode: incremental
+    watermark_column: ModifiedOn
+    partition_column: ingestion_date
+
+  stewardship:
+    approvers:
+      - "finance.steward@company.com"
+    escalation_contact: "finance.data.owner@company.com"
+    sla_hours: 48
+
+  tags:
+    source_system: erp
+    data_domain: finance
+    data_classification: confidential

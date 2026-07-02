@@ -1,0 +1,102 @@
+# DataGuardian Schema Contract — Customer Entity (Example)
+
+entity: customer
+version: "1.0"
+description: "Canonical customer entity representing a unique business customer"
+
+owner: "finance.data.owner@company.com"
+steward: "finance.steward@company.com"
+data_domain: finance
+
+business_key:
+  - customer_id
+
+columns:
+  - name: customer_id
+    type: string
+    nullable: false
+    description: "Unique identifier for the customer record"
+    pii: false
+    aliases:
+      - CustID
+      - cust_id
+      - customerid
+
+  - name: full_name
+    type: string
+    nullable: false
+    description: "Customer full legal name"
+    pii: true
+    aliases:
+      - FullName
+      - name
+      - customer_name
+      - cust_name
+
+  - name: email_address
+    type: string
+    nullable: true
+    description: "Primary contact email address"
+    pii: true
+    aliases:
+      - EmailAddr
+      - email
+      - email_addr
+    validation:
+      pattern: "^[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}$"
+
+  - name: phone_number
+    type: string
+    nullable: true
+    description: "Primary contact phone number in E.164 format"
+    pii: true
+    aliases:
+      - PhoneNum
+      - phone
+      - phone_no
+
+  - name: date_of_birth
+    type: date
+    nullable: true
+    description: "Customer date of birth"
+    pii: true
+    aliases:
+      - DOB
+      - dob
+      - birth_date
+    validation:
+      min_value: "1900-01-01"
+      max_value: "{today}"
+
+  - name: country_code
+    type: string
+    nullable: false
+    description: "ISO 3166-1 alpha-2 country code"
+    pii: false
+    aliases:
+      - CountryCode
+      - country
+      - cntry_cd
+    validation:
+      reference_table: "{catalog}.gold.ref_countries"
+      reference_column: country_code
+
+  - name: created_at
+    type: timestamp
+    nullable: false
+    description: "Record creation timestamp in the source system"
+    pii: false
+    aliases:
+      - CreatedOn
+      - created_date
+      - create_ts
+
+  - name: updated_at
+    type: timestamp
+    nullable: false
+    description: "Record last modified timestamp in the source system"
+    pii: false
+    aliases:
+      - ModifiedOn
+      - updated_date
+      - update_ts

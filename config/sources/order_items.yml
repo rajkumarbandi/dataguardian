@@ -1,0 +1,219 @@
+# DataGuardian — Source Configuration: ERP Order Items
+#
+# Daily incremental extract of order line items from the ERP system.
+# References order_id (FK to orders) and product_id (FK to products).
+# One order has 1-N line items.
+#
+# ADLS path: {adls_root}/raw/erp/order_items/
+# Expected file naming: order_items_{YYYYMMDD}.csv
+
+name: order_items
+system: erp
+description: >
+  Sales order line items from the ERP system. Each row represents one product
+  on one order. Contains quantity, unit pricing, discount, and computed line
+  total. References both the order header (order_id) and the product catalogue
+  (product_id). Loaded as a daily incremental extract.
+
+# ---------------------------------------------------------------------------
+# Connector
+# ---------------------------------------------------------------------------
+connector:
+  type: csv
+  location: "{adls_root}/raw/erp/order_items"
+  options:
+    header: "true"
+    delimiter: ","
+    encoding: UTF-8
+    quote: '"'
+    multiLine: "false"
+    nullValue: ""
+
+# ---------------------------------------------------------------------------
+# Schema
+# ---------------------------------------------------------------------------
+schema:
+  - name: order_item_id
+    type: string
+    nullable: false
+    description: Surrogate key for the order line item
+
+  - name: order_id
+    type: string
+    nullable: false
+    description: Foreign key reference to the order header
+
+  - name: product_id
+    type: string
+    nullable: false
+    description: Foreign key reference to the product catalogue
+
+  - name: quantity
+    type: integer
+    nullable: false
+    description: Number of units ordered (must be > 0)
+
+  - name: unit_price
+    type: double
+    nullable: true
+    description: Actual selling price per unit (may differ from list price)
+
+  - name: discount_pct
+    type: double
+    nullable: true
+    description: Line-level discount as a percentage (0.0 to 100.0)
+
+  - name: line_total
+    type: double
+    nullable: true
+    description: Computed line total = quantity × unit_price × (1 - discount_pct/100)
+
+# ---------------------------------------------------------------------------
+# Target
+# ---------------------------------------------------------------------------
+target:
+  catalog: "{catalog}"
+  schema: bronze
+  table: erp_order_items
+  load_type: append
+  partition_by: _load_date
+
+# ---------------------------------------------------------------------------
+# Metadata
+# ---------------------------------------------------------------------------
+metadata:
+  owner: data-engineering@company.com
+  data_classification: internal
+  tags:
+    domain: sales
+    source_system: erp
+    environment: "{env}"
+    data_product: order_management
+    pii: "false"
+    financial: "true"
+    dq_enabled: "true"
+
+# ---------------------------------------------------------------------------
+# Data Quality Rules
+# ---------------------------------------------------------------------------
+dq_rules:
+  # Primary key integrity
+  - rule: not_null
+    column: order_item_id
+    severity: error
+
+  - rule: unique
+    column: order_item_id
+    severity: error
+
+  # Referential integrity — line items must belong to an order
+  - rule: not_null
+    column: order_id
+    severity: error
+
+  # Referential integrity — line items must reference a product
+  - rule: not_null
+    column: product_id
+    severity: error
+
+  # Quantity — must be present and strictly positive
+  - rule: not_null
+    column: quantity
+    severity: error
+
+  - rule: positive_number
+    column: quantity
+    severity: error
+    params:
+      allow_zero: false
+
+  # Unit price — must be present (zero price indicates a data error)
+  - rule: not_null
+    column: unit_price
+    severity: error
+
+  - rule: positive_number
+    column: unit_price
+    severity: error
+    params:
+      allow_zero: false
+
+  # Discount — must be between 0 and 100 percent when present
+  - rule: sql_expression
+    column: discount_pct
+    severity: warning
+    params:
+      expression: "discount_pct IS NULL OR (discount_pct >= 0 AND discount_pct <= 100)"
+      description: "Discount percentage must be between 0 and 100"
+
+# ---------------------------------------------------------------------------
+# Schema Evolution (Milestone 5)
+# ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# Data Contract (Milestone 7)
+# ---------------------------------------------------------------------------
+contract:
+  name: order_items_data_contract
+  version: "1.0.0"
+  owner: data-engineering@company.com
+  domain: sales
+  description: >
+    Formal data contract for order line items. References both orders and
+    products — structural integrity is critical for financial reporting.
+  criticality: critical
+  expected_refresh: daily
+  validation_policy: FAIL_PIPELINE
+
+  required_columns:
+    - order_item_id
+    - order_id
+    - product_id
+    - quantity
+    - unit_price
+
+  primary_keys:
+    - order_item_id
+
+  non_nullable_columns:
+    - order_item_id
+    - order_id
+    - product_id
+
+  allowed_datatypes:
+    order_item_id: string
+    order_id: string
+    product_id: string
+    quantity: integer
+    unit_price: double
+    discount_pct: double
+
+  row_count:
+    min: 0                            # incremental — may be zero on quiet days
+
+  required_dq_rules:
+    - not_null
+    - unique
+    - positive_number
+    - sql_expression
+
+  schema_version_min: 1
+
+schema_evolution:
+  evolution_mode: ALLOW_NEW_COLUMNS   # line item attributes may be extended
+  allow_nullable_changes: false
+  allow_type_promotion: true          # numeric widening safe for quantities and amounts
+
+# ---------------------------------------------------------------------------
+# Transformation Engine (Milestone 6)
+# ---------------------------------------------------------------------------
+transformation_policy:
+  on_error: fail_fast             # financial line items — transformation failures must abort
+
+transformations:
+  # Default null discount_pct to 0.0 — null means no discount was applied
+  # Prevents the DQ sql_expression range check from treating null as a violation
+  - type: null_replacement
+    params:
+      column: discount_pct
+      value: 0.0
+    description: Default null discount_pct to 0.0 (no discount)

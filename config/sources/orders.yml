@@ -1,0 +1,234 @@
+# DataGuardian — Source Configuration: ERP Orders
+#
+# Daily incremental extract of sales orders from the ERP system.
+# References customer_id (FK to customers) and carries financial totals.
+#
+# ADLS path: {adls_root}/raw/erp/orders/
+# Expected file naming: orders_{YYYYMMDD}.csv
+
+name: orders
+system: erp
+description: >
+  Sales order header records from the ERP system. Contains order lifecycle
+  status, financial totals, and references to customers. Loaded as a daily
+  incremental extract — only orders created or updated in the last 24 hours.
+  Bronze table appends all extracted records; deduplication happens in Silver.
+
+# ---------------------------------------------------------------------------
+# Connector
+# ---------------------------------------------------------------------------
+connector:
+  type: csv
+  location: "{adls_root}/raw/erp/orders"
+  options:
+    header: "true"
+    delimiter: ","
+    encoding: UTF-8
+    quote: '"'
+    multiLine: "false"
+    nullValue: ""
+    dateFormat: yyyy-MM-dd
+    timestampFormat: "yyyy-MM-dd HH:mm:ss"
+
+# ---------------------------------------------------------------------------
+# Schema
+# ---------------------------------------------------------------------------
+schema:
+  - name: order_id
+    type: string
+    nullable: false
+    description: Natural order key from the ERP system
+
+  - name: customer_id
+    type: string
+    nullable: false
+    description: Foreign key reference to the customer master
+
+  - name: order_date
+    type: date
+    nullable: true
+    description: Date the order was placed
+
+  - name: status
+    type: string
+    nullable: true
+    description: "Order lifecycle status: PENDING | CONFIRMED | PROCESSING | SHIPPED | DELIVERED | CANCELLED | RETURNED"
+
+  - name: total_amount
+    type: double
+    nullable: true
+    description: Order total in source currency (before tax)
+
+  - name: currency
+    type: string
+    nullable: true
+    description: ISO 4217 currency code
+
+  - name: shipping_country
+    type: string
+    nullable: true
+    description: ISO 3166-1 alpha-2 country code for the shipping destination
+
+  - name: payment_method
+    type: string
+    nullable: true
+    description: Payment method used (credit_card, bank_transfer, paypal, stripe, wire_transfer)
+
+  - name: created_at
+    type: timestamp
+    nullable: true
+    description: ERP system timestamp when the order record was created
+
+# ---------------------------------------------------------------------------
+# Target
+# ---------------------------------------------------------------------------
+target:
+  catalog: "{catalog}"
+  schema: bronze
+  table: erp_orders
+  load_type: append
+  partition_by: _load_date
+
+# ---------------------------------------------------------------------------
+# Metadata
+# ---------------------------------------------------------------------------
+metadata:
+  owner: data-engineering@company.com
+  data_classification: confidential
+  tags:
+    domain: sales
+    source_system: erp
+    environment: "{env}"
+    data_product: order_management
+    pii: "false"
+    financial: "true"
+    dq_enabled: "true"
+
+# ---------------------------------------------------------------------------
+# Data Quality Rules
+# ---------------------------------------------------------------------------
+dq_rules:
+  # Primary key integrity
+  - rule: not_null
+    column: order_id
+    severity: error
+
+  - rule: unique
+    column: order_id
+    severity: error
+
+  # Referential integrity — every order must belong to a customer
+  - rule: not_null
+    column: customer_id
+    severity: error
+
+  # Financial integrity — order total must be present and positive
+  - rule: not_null
+    column: total_amount
+    severity: error
+
+  - rule: positive_number
+    column: total_amount
+    severity: error
+    params:
+      allow_zero: false
+
+  # Date sanity — orders cannot have a future order_date
+  - rule: future_date
+    column: order_date
+    severity: error
+
+  # Order status — must be one of the supported lifecycle states
+  - rule: allowed_values
+    column: status
+    severity: error
+    params:
+      values:
+        - PENDING
+        - CONFIRMED
+        - PROCESSING
+        - SHIPPED
+        - DELIVERED
+        - CANCELLED
+        - RETURNED
+
+  # Shipping destination — must be a valid country
+  - rule: country_code
+    column: shipping_country
+    severity: warning
+
+# ---------------------------------------------------------------------------
+# Schema Evolution (Milestone 5)
+# ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# Data Contract (Milestone 7)
+# ---------------------------------------------------------------------------
+contract:
+  name: orders_data_contract
+  version: "1.0.0"
+  owner: data-engineering@company.com
+  domain: sales
+  description: >
+    Formal data contract for sales order headers. Financial records with
+    strict structural and quality requirements.
+  criticality: critical
+  expected_refresh: daily
+  validation_policy: FAIL_PIPELINE    # financial records — all breaches must fail
+
+  required_columns:
+    - order_id
+    - customer_id
+    - total_amount
+    - status
+    - order_date
+
+  primary_keys:
+    - order_id
+
+  non_nullable_columns:
+    - order_id
+    - customer_id
+    - total_amount
+
+  allowed_datatypes:
+    order_id: string
+    customer_id: string
+    total_amount: double
+    order_date: date
+
+  row_count:
+    min: 0                            # incremental — may be zero on quiet days
+
+  required_dq_rules:
+    - not_null
+    - unique
+    - positive_number
+    - future_date
+    - allowed_values
+    - country_code
+
+  schema_version_min: 1
+
+schema_evolution:
+  evolution_mode: STRICT              # order schema must be stable — financial records
+  allow_nullable_changes: false
+  allow_type_promotion: false
+
+# ---------------------------------------------------------------------------
+# Transformation Engine (Milestone 6)
+# ---------------------------------------------------------------------------
+transformation_policy:
+  on_error: fail_fast             # financial source — any transformation failure must abort
+
+transformations:
+  # Remove whitespace from status codes to prevent allowed_values DQ rule false-positives
+  - type: trim_strings
+    params:
+      columns: [status]
+    description: Trim whitespace from order status before DQ allowed_values check
+
+  # Normalise status to upper case — source occasionally sends lowercase values
+  - type: upper_case
+    params:
+      columns: [status]
+    description: Normalise order status to uppercase (PENDING, CONFIRMED, etc.)

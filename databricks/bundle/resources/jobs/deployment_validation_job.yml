@@ -1,0 +1,48 @@
+# DataGuardian — Deployment Validation Job
+# Milestone 8: CI/CD, Packaging & Deployment
+#
+# Ops job that validates the target environment before the first pipeline run.
+# Run this after every new deployment to confirm the environment is ready:
+#   - Unity Catalog accessible
+#   - Required schemas exist (or will be created on first run)
+#   - DataGuardian package is importable
+#   - Environment YAML is correctly configured
+#
+# Usage:
+#   databricks bundle run deployment_validation --target dev
+#   databricks bundle run deployment_validation --target prod
+
+resources:
+  jobs:
+    deployment_validation:
+      name: "[${bundle.target}] DataGuardian — Deployment Validation"
+      description: >-
+        Validates that the target Databricks environment is correctly configured
+        for DataGuardian.  Checks Unity Catalog access, schema existence, audit
+        table status, package installation, and environment YAML completeness.
+        Returns a structured validation report.  Run after every new deployment.
+
+      email_notifications:
+        on_failure:
+          - ${var.notification_email}
+        no_alert_for_skipped_runs: true
+
+      tasks:
+        - task_key: validate_deployment
+          description: "Run DeploymentValidator and print structured report."
+          notebook_task:
+            notebook_path: "${workspace.root_path}/databricks/notebooks/ops/deployment_validation"
+            base_parameters:
+              env: "${bundle.target}"
+              secrets_scope: "${var.secret_scope}"
+              fail_on_warnings: "false"
+          existing_cluster_id: "${resources.clusters.dataguardian_shared.id}"
+          timeout_seconds: 600
+          max_retries: 0
+          run_if: ALL_SUCCESS
+
+      permissions:
+        - level: CAN_MANAGE_RUN
+          group_name: "${var.data_engineering_group}"
+        - level: CAN_VIEW
+          group_name: data-readers
