@@ -166,7 +166,9 @@ def _discover_sources(config_root: str | None = None) -> list[str]:
 
 
 if source_names_raw.strip().lower() == "all":
-    sources: list[str] = _discover_sources()
+    # Pass ConfigLoader's resolved config root — uses __file__-based resolution
+    # which works regardless of Databricks workspace FUSE mount behaviour.
+    sources: list[str] = _discover_sources(config_root=str(loader._config_root))
     if not sources:
         raise RuntimeError(
             "No sources found in config/sources/. "
