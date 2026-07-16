@@ -9,7 +9,7 @@ resources:
       name: "dataguardian-stewardship-${bundle.target}"
       description: "DataGuardian Business Data Stewardship Portal — operational interface for business data stewards to validate curated data before promotion to Gold"
 
-      source_code_path: ../../src/app
+      source_code_path: src/app
 
       config:
         - name: catalog

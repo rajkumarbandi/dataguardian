@@ -1,0 +1,107 @@
+bundle:
+  name: dataguardian
+
+include:
+  - databricks/bundle/resources/jobs/*.yml
+  - databricks/bundle/resources/clusters/*.yml
+  # Uncomment after the pipeline is validated end-to-end:
+  # - databricks/bundle/resources/apps/*.yml
+
+sync:
+  include:
+    - src/**
+    - config/**
+    - databricks/notebooks/**
+    - pyproject.toml
+    - requirements.txt
+
+  exclude:
+    - "**/__pycache__/**"
+    - "**/*.pyc"
+    - "**/*.egg-info/**"
+    - .git/**
+    - tests/**
+    - dist/**
+    - htmlcov/**
+    - .env
+    - .env.*
+    - "*.local"
+
+variables:
+
+  environment:
+    default: dev
+
+  catalog:
+    default: dg_dev
+
+  adls_root:
+    default: "abfss://dataguardian-dev@dg-adls-dev.dfs.core.windows.net"
+
+  secret_scope:
+    default: dataguardian-dev-scope
+
+  log_level:
+    default: DEBUG
+
+  spark_version:
+    default: "14.3.x-scala2.12"
+
+  node_type_id:
+    default: Standard_DS3_v2
+
+  num_workers:
+    default: "2"
+
+  schedule_cron:
+    default: "0 0 6 * * ?"
+
+  notification_email:
+    default: "dataguardian-alerts@company.com"
+
+  data_engineering_group:
+    default: data-engineering-dev
+
+  sql_warehouse_id:
+    default: ""
+
+  sql_warehouse_http_path:
+    default: ""
+
+  data_stewards_group:
+    default: data-stewards
+
+targets:
+
+  dev:
+    mode: development
+
+    workspace:
+      host: https://adb-7405607597640151.11.azuredatabricks.net
+
+    variables:
+      environment: dev
+      catalog: dg_dev
+      adls_root: "abfss://dataguardian-dev@dg-adls-dev.dfs.core.windows.net"
+      secret_scope: dataguardian-dev-scope
+      log_level: DEBUG
+      schedule_cron: "0 0 6 * * ?"
+      data_engineering_group: data-engineering-dev
+      num_workers: "2"
+
+  qa:
+    mode: production
+
+    workspace:
+      host: https://adb-7405605321258399.19.azuredatabricks.net
+      root_path: /Workspace/Users/bkumar@intuceo.com/.bundle/${bundle.name}/${bundle.target}
+
+    variables:
+      environment: qa
+      catalog: dg_qa
+      adls_root: "abfss://dataguardian-qa@dg-adls-qa.dfs.core.windows.net"
+      secret_scope: dataguardian-qa-scope
+      log_level: INFO
+      schedule_cron: "0 0 3 * * ?"
+      data_engineering_group: data-engineering-qa
+      num_workers: "4"

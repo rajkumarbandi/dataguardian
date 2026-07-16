@@ -148,9 +148,11 @@ def _discover_sources(config_root: str | None = None) -> list[str]:
     Return all source names available in config/sources/, excluding template files.
     Works regardless of whether the notebook runs from a Repo or a DAB workspace.
     """
+    from pathlib import Path  # explicit import — cell may run before the setup cell in job context
+
     candidates = [
         Path(config_root) / "sources" if config_root else None,
-        Path(_repo_root) / "config" / "sources" if "_repo_root" in dir() else None,  # type: ignore[has-type]
+        Path(globals()["_repo_root"]) / "config" / "sources" if "_repo_root" in globals() else None,
         Path("config") / "sources",
     ]
     for candidate in candidates:

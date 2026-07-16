@@ -61,10 +61,17 @@ resources:
             Read all active ERP sources from ADLS Gen2 and write raw records
             to Bronze Delta tables in Unity Catalog.
           notebook_task:
-            notebook_path: "${workspace.root_path}/databricks/notebooks/ingestion/bronze_ingestion"
+            notebook_path: "databricks/notebooks/ingestion/bronze_ingestion.py"
             base_parameters:
               env: "${bundle.target}"
               source_names: "all"
+          libraries:
+            - pypi:
+                package: "pydantic>=2.5,<3.0"
+            - pypi:
+                package: "pyyaml>=6.0"
+            - pypi:
+                package: "structlog>=24.2"
           existing_cluster_id: "${resources.clusters.dataguardian_shared.id}"
           timeout_seconds: 7200
           max_retries: 2
@@ -81,12 +88,19 @@ resources:
           depends_on:
             - task_key: bronze_ingest_all
           notebook_task:
-            notebook_path: "${workspace.root_path}/databricks/notebooks/quality/silver_validation"
+            notebook_path: "databricks/notebooks/quality/silver_validation.py"
             base_parameters:
               env: "${bundle.target}"
               source_name: "all"
               batch_id: "latest"
               secrets_scope: "${var.secret_scope}"
+          libraries:
+            - pypi:
+                package: "pydantic>=2.5,<3.0"
+            - pypi:
+                package: "pyyaml>=6.0"
+            - pypi:
+                package: "structlog>=24.2"
           existing_cluster_id: "${resources.clusters.dataguardian_shared.id}"
           timeout_seconds: 7200
           max_retries: 1

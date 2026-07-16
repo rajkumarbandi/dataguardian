@@ -25,17 +25,23 @@ resources:
       email_notifications:
         on_failure:
           - ${var.notification_email}
-        no_alert_for_skipped_runs: true
 
       tasks:
         - task_key: validate_deployment
           description: "Run DeploymentValidator and print structured report."
           notebook_task:
-            notebook_path: "${workspace.root_path}/databricks/notebooks/ops/deployment_validation"
+            notebook_path: "databricks/notebooks/ops/deployment_validation.py"
             base_parameters:
               env: "${bundle.target}"
               secrets_scope: "${var.secret_scope}"
               fail_on_warnings: "false"
+          libraries:
+            - pypi:
+                package: "pydantic>=2.5,<3.0"
+            - pypi:
+                package: "pyyaml>=6.0"
+            - pypi:
+                package: "structlog>=24.2"
           existing_cluster_id: "${resources.clusters.dataguardian_shared.id}"
           timeout_seconds: 600
           max_retries: 0

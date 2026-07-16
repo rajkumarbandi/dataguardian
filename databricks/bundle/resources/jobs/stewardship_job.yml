@@ -17,10 +17,17 @@ resources:
         - task_key: sla_monitor
           description: "Check for SLA breaches in stewardship layer and send alerts"
           notebook_task:
-            notebook_path: "databricks/notebooks/stewardship/sla_monitor"
+            notebook_path: "databricks/notebooks/stewardship/sla_monitor.py"
             base_parameters:
               env: "${bundle.target}"
               catalog: "${var.catalog}"
+          libraries:
+            - pypi:
+                package: "pydantic>=2.5,<3.0"
+            - pypi:
+                package: "pyyaml>=6.0"
+            - pypi:
+                package: "structlog>=24.2"
           existing_cluster_id: "${resources.clusters.dataguardian_shared.id}"
           timeout_seconds: 600
           max_retries: 1
@@ -30,10 +37,17 @@ resources:
           depends_on:
             - task_key: sla_monitor
           notebook_task:
-            notebook_path: "databricks/notebooks/publishing/gold_publish"
+            notebook_path: "databricks/notebooks/publishing/gold_publish.py"
             base_parameters:
               env: "${bundle.target}"
               catalog: "${var.catalog}"
+          libraries:
+            - pypi:
+                package: "pydantic>=2.5,<3.0"
+            - pypi:
+                package: "pyyaml>=6.0"
+            - pypi:
+                package: "structlog>=24.2"
           existing_cluster_id: "${resources.clusters.dataguardian_shared.id}"
           timeout_seconds: 3600
           max_retries: 1

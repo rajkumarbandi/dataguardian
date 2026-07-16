@@ -57,10 +57,17 @@ resources:
             One IngestionEngine.run() call per source; failures are isolated
             per-source so a single bad source does not block others.
           notebook_task:
-            notebook_path: "${workspace.root_path}/databricks/notebooks/ingestion/bronze_ingestion"
+            notebook_path: "databricks/notebooks/ingestion/bronze_ingestion.py"
             base_parameters:
               env: "${bundle.target}"
               source_names: "all"
+          libraries:
+            - pypi:
+                package: "pydantic>=2.5,<3.0"
+            - pypi:
+                package: "pyyaml>=6.0"
+            - pypi:
+                package: "structlog>=24.2"
           existing_cluster_id: "${resources.clusters.dataguardian_shared.id}"
           timeout_seconds: 7200      # 2-hour wall-clock limit
           max_retries: 2

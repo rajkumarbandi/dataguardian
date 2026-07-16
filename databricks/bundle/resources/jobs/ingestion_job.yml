@@ -17,10 +17,17 @@ resources:
         - task_key: bronze_ingestion
           description: "Ingest raw data from source systems into Bronze layer"
           notebook_task:
-            notebook_path: "databricks/notebooks/ingestion/bronze_ingestion"
+            notebook_path: "databricks/notebooks/ingestion/bronze_ingestion.py"
             base_parameters:
               env: "${bundle.target}"
               catalog: "${var.catalog}"
+          libraries:
+            - pypi:
+                package: "pydantic>=2.5,<3.0"
+            - pypi:
+                package: "pyyaml>=6.0"
+            - pypi:
+                package: "structlog>=24.2"
           existing_cluster_id: "${resources.clusters.dataguardian_shared.id}"
           timeout_seconds: 3600
           max_retries: 2
@@ -31,10 +38,17 @@ resources:
           depends_on:
             - task_key: bronze_ingestion
           notebook_task:
-            notebook_path: "databricks/notebooks/transformation/silver_transform"
+            notebook_path: "databricks/notebooks/transformation/silver_transform.py"
             base_parameters:
               env: "${bundle.target}"
               catalog: "${var.catalog}"
+          libraries:
+            - pypi:
+                package: "pydantic>=2.5,<3.0"
+            - pypi:
+                package: "pyyaml>=6.0"
+            - pypi:
+                package: "structlog>=24.2"
           existing_cluster_id: "${resources.clusters.dataguardian_shared.id}"
           timeout_seconds: 7200
           max_retries: 1
@@ -44,10 +58,17 @@ resources:
           depends_on:
             - task_key: silver_transformation
           notebook_task:
-            notebook_path: "databricks/notebooks/quality/dq_checks"
+            notebook_path: "databricks/notebooks/quality/dq_checks.py"
             base_parameters:
               env: "${bundle.target}"
               catalog: "${var.catalog}"
+          libraries:
+            - pypi:
+                package: "pydantic>=2.5,<3.0"
+            - pypi:
+                package: "pyyaml>=6.0"
+            - pypi:
+                package: "structlog>=24.2"
           existing_cluster_id: "${resources.clusters.dataguardian_shared.id}"
           timeout_seconds: 3600
           max_retries: 1
