@@ -10,7 +10,7 @@ environment: rg_dev_sandbox
 # Unity Catalog
 # ---------------------------------------------------------------------------
 unity_catalog:
-  catalog: dg_dev
+  catalog: rg_dev_sandbox
   schemas:
     bronze: bronze
     silver: silver
