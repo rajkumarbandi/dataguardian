@@ -4,7 +4,7 @@
 # Update adls_account, adls_root, and catalog to match your actual
 # Azure Data Lake Storage Gen2 account and Unity Catalog in this workspace.
 
-environment: rg_dev_sandbox
+environment: dev
 
 # ---------------------------------------------------------------------------
 # Unity Catalog
