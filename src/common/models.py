@@ -542,9 +542,6 @@ class EnvironmentConfig(BaseModel):
     @field_validator("environment")
     @classmethod
     def validate_environment(cls, v: str) -> str:
-        allowed = {"dev", "qa", "prod", "test"}
-        if v not in allowed:
-            raise ValueError(
-                f"environment must be one of {allowed}, got {v!r}"
-            )
-        return v
+        if not v or not v.strip():
+            raise ValueError("environment must not be empty")
+        return v.strip()
