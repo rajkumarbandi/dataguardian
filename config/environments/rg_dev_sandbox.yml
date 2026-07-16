@@ -1,0 +1,120 @@
+# DataGuardian — RG Dev Sandbox Environment Configuration
+#
+# Sandbox environment for interactive development and testing.
+# Update adls_account, adls_root, and catalog to match your actual
+# Azure Data Lake Storage Gen2 account and Unity Catalog in this workspace.
+
+environment: rg_dev_sandbox
+
+# ---------------------------------------------------------------------------
+# Unity Catalog
+# ---------------------------------------------------------------------------
+unity_catalog:
+  catalog: dg_dev
+  schemas:
+    bronze: bronze
+    silver: silver
+    stewardship: stewardship
+    gold: gold
+    audit: audit
+
+# ---------------------------------------------------------------------------
+# Storage — Azure Data Lake Storage Gen2
+# ---------------------------------------------------------------------------
+storage:
+  adls_account: dg-adls-dev                          # update to your actual ADLS account
+  adls_container: dataguardian-dev
+  adls_root: "abfss://dataguardian-dev@dg-adls-dev.dfs.core.windows.net"
+  checkpoint_location: "abfss://dataguardian-dev@dg-adls-dev.dfs.core.windows.net/_checkpoints"
+  raw_zone: "abfss://dataguardian-dev@dg-adls-dev.dfs.core.windows.net/raw"
+  archive_zone: "abfss://dataguardian-dev@dg-adls-dev.dfs.core.windows.net/archive"
+
+# ---------------------------------------------------------------------------
+# Databricks workspace
+# ---------------------------------------------------------------------------
+databricks:
+  secret_scope: dataguardian-dev-scope
+  cluster_policy_id: ""
+  repo_path: /Workspace/Users/bkumar@intuceo.com/dataguardian
+
+# ---------------------------------------------------------------------------
+# Ingestion pipeline
+# ---------------------------------------------------------------------------
+ingestion:
+  default_partition_column: _load_date
+  batch_size_rows: 100000
+  retry_attempts: 3
+  retry_delay_seconds: 30
+  archive_source_files: false
+
+# ---------------------------------------------------------------------------
+# Data Quality
+# ---------------------------------------------------------------------------
+quality:
+  default_dq_threshold: 0.70
+  fail_on_threshold_breach: false
+
+# ---------------------------------------------------------------------------
+# Stewardship
+# ---------------------------------------------------------------------------
+stewardship:
+  sla_hours: 1
+  notifications_enabled: false
+  default_approvers: []
+
+# ---------------------------------------------------------------------------
+# AI enrichment
+# ---------------------------------------------------------------------------
+ai:
+  enabled: false
+  provider: azure_openai
+
+# ---------------------------------------------------------------------------
+# Logging
+# ---------------------------------------------------------------------------
+logging:
+  level: DEBUG
+  format: json
+
+# ---------------------------------------------------------------------------
+# Spark configuration overrides
+# ---------------------------------------------------------------------------
+spark:
+  shuffle_partitions: 8
+  adaptive_query_execution: true
+  broadcast_threshold_mb: 10
+
+# ---------------------------------------------------------------------------
+# Pipeline
+# ---------------------------------------------------------------------------
+pipeline:
+  pipeline_name: dataguardian-erp
+  pipeline_version: "1.0.0"
+  audit_enabled: true
+  retry_policy:
+    max_attempts: 2
+    initial_delay_seconds: 1.0
+    backoff_multiplier: 2.0
+    max_delay_seconds: 30.0
+
+# ---------------------------------------------------------------------------
+# Schema Registry
+# ---------------------------------------------------------------------------
+schema_registry:
+  schema_registry_enabled: true
+  schema_audit_enabled: true
+  default_evolution_mode: ALLOW_NEW_COLUMNS
+
+# ---------------------------------------------------------------------------
+# Transformation Engine
+# ---------------------------------------------------------------------------
+transformation:
+  audit_enabled: true
+
+# ---------------------------------------------------------------------------
+# Contract Validation
+# ---------------------------------------------------------------------------
+contract_validation:
+  contract_validation_enabled: true
+  contract_audit_enabled: true
+  default_contract_policy: WARNING_ONLY
